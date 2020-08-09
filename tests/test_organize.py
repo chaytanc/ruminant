@@ -3,8 +3,8 @@
 import unittest
 import logging
 import sys
-sys.path.append('../lib')
-import organize
+sys.path.append('../code')
+import ruminate
 
 def setup_logger(logger_level):
 	''' Args: logger supports levels DEBUG, INFO, WARNING, ERROR, CRITICAL.

@@ -152,6 +152,7 @@ def input_tier_tree(n_tier_classes):
 # Create instances. Each instance must have a connection to a 
 # tier with a higher hierarchy level
 def create_tier_instance():
+
 	pass
 
 n_tier_classes = input_n_tier_classes()
