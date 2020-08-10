@@ -1,5 +1,6 @@
 # vim: set sw=4 noet ts=4 fileencoding=utf-8:
 import logging
+import pdb
 
 def setup_logger(logger_level):
 	''' Args: logger supports levels DEBUG, INFO, WARNING, ERROR, CRITICAL.
@@ -91,7 +92,8 @@ def create_tier_class(attributes_dict):
 def setup_tier_tree(n_tier_classes, attributes_dicts_list):
 	log.debug("attributes_dicts_list: {}".format(attributes_dicts_list))
 	# Hierarchy level 0 is the top of the tree / most important/broad level
-	# Ex: [{0: [type("Main_Goals", (object,), {attributes...}), 
+	# Ex of tier_tree filled with hierarchy_dicts: 
+	# [{0: [type("Main_Goals", (object,), {attributes...}), 
 	# ... other tiers on hierarchy_level 0..., ]}, {1: [...]}, ]
 	tier_tree = []
 	#XXX could also just iterate over len of attributes_dicts_list
@@ -105,11 +107,19 @@ def setup_tier_tree(n_tier_classes, attributes_dicts_list):
 			# If a dict of the hierarchy_level h_level already exists, 
 			# append the class to the dict
 			# [{0: []}]
+			#XXX this assumes that tier_tree is ordered such that the 0th
+			# element corresponds to the hierarchy_dict with they key 0
+			# XXX...fix later
 			hierarchy_dict = tier_tree[h_level]
+			log.debug("Hierarchy_dict: {} \n".format(hierarchy_dict))
+			log.debug("tier_tree: {} \n".format(tier_tree))
 
+
+			#XXX if out of order h_levels supplied, crashes here w KeyError
+			# due to reasons above
 			hierarchy_dict[h_level].append(New_Tier_Class)
 
-		except IndexError:
+		except (IndexError or KeyError):
 			# Create hierarchy_level dict
 			hierarchy_dict = {}
 			# [{0: []}]
@@ -149,11 +159,88 @@ def input_tier_tree(n_tier_classes):
 	log.info("\nCustom tier tree: \n {}".format(custom_tier_tree))
 	return custom_tier_tree
 
+# Get all class attributes from tier_tree
+def get_all_classes(custom_tier_tree):
+	full_classes_list = []
+	# Gets all hierarchy levels from tier_tree
+	for i, hierarchy_dict in enumerate(custom_tier_tree):
+		log.debug("i: {}".format(i))
+		# Get all classes in each hierarchy level
+		# NOTE that i is a key in the case of hierarchy_dict, not an index
+		classes_list = hierarchy_dict[i]
+		log.debug("hierarchy_dict[i]: {}".format(classes_list))
+		for cls in classes_list:
+			#pass in a fucntion to perform here instead of returning things?
+			# That doesn't seem to work well because it requires setup of 
+			# full_classes list... hard to abstract the setup as well since
+			# it isn't always needed w/ while_unpackign func
+			full_classes_list.append(cls)
+
+	return full_classes_list
+
+#def unpack_tier_tree(custom_tier_tree, while_unpacking):
+#	for i, hierarchy_dict in enumerate(custom_tier_tree):
+#		log.debug("i: {}".format(i))
+#		# Get all classes in each hierarchy level
+#		# NOTE that i is a key in the case of hierarchy_dict, not an index
+#		classes_list = hierarchy_dict[i]
+#		log.debug("hierarchy_dict[i]: {}".format(classes_list))
+#		for cls in classes_list:
+#			while_unpacking()
+
+
+# INSTANCES OF TIERS / MAKING A SPREADSHEET ENTRY
 # Create instances. Each instance must have a connection to a 
 # tier with a higher hierarchy level
-def create_tier_instance():
-
+def create_tier_instance(custom_tier_tree, tier_type):
+	# Separate asking what tier instance from setting connection library
+	# Ask what type of tier instance to create or pass it in
+	# For the given tier ask what tier above or beside it connects to
+	# Add connection attribute to class and the class above / lateral
+	# If lateral, inherit connection library from connection
 	pass
 
+def input_tier_instance_class(custom_tier_tree):
+	display_tier_types(custom_tier_tree)
+	tier_type_input = input("What type of tier are you creating? \n")
+	tier_instance_class = get_class_by_name(custom_tier_tree, tier_type_input)
+	log.info("Setting tier_instance_class to {}".format(
+		tier_instance_class))
+	return tier_instance_class
+
+#XXX writing unit test for
+def get_class_by_name(custom_tier_tree, name_to_find):
+	''' Searches through the custom_tier_tree to find a class with the correct
+		name attribute and return that class object. '''
+	# All classes as setup by the user
+	class_list = get_all_classes(custom_tier_tree)
+	found_class = None
+	for cls in class_list:
+		if cls.name == name_to_find:
+			found_class = cls
+	return found_class
+
+def display_tier_types(custom_tier_tree):
+	full_classes_list = get_all_classes(custom_tier_tree)
+	# Show tier types / options  to choose from based on creation of tier_tree
+	for cls in full_classes_list:
+		log.info("\n Tier Type options: {} \n".format(cls))
+	#return full_classes_list
+
+def input_connection_to():
+	''' Asks / forces the user to create at least one connection between 
+		the current tier instance and a lateral or above class instance '''
+	# display classes above created instance
+
+def make_connection(tier_instance, selected_connection):
+	pass
+
+def inherit_connections(tier_instance):
+	pass
+
+
+
 n_tier_classes = input_n_tier_classes()
-input_tier_tree(n_tier_classes)
+custom_tier_tree = input_tier_tree(n_tier_classes)
+tier_instance_class = input_tier_instance_class(custom_tier_tree)
+log.debug("Tier instance of a class: {}".format(tier_instance_class))
