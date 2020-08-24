@@ -16,10 +16,12 @@ log = setup_logger(logging.DEBUG)
 # attribute function for __init__. Thus, arguments passed here will get set.
 # Pass in a dict or list for args to init multiple parameters
 def class_constructor(arg):
-	self.constructor_arg = arg
+	constructor_arg = arg
 
 def input_as_int(input_question):
-
+	''' This function continues to ask for an integer value as input until
+		it is satisfied.
+	'''
 	input_not_satisfied = True
 	while input_not_satisfied:
 		user_in = input(input_question)
@@ -47,6 +49,12 @@ def create_minimum_attributes_dict(name, hierarchy_level):
 		"__init__" : class_constructor,
 		"name" : name,
 		"hierarchy_level" : hierarchy_level,
+		#XXX user must input connections later, but all classes have this field
+		#XXX is a class attribute! I need an instance attribute!
+		"connections_above" : [],
+		"connections_below" : [],
+		"connections_equal_how" : [],
+		"connections_equal_why" : [],
 	}
 	return attributes_dict
 
@@ -208,7 +216,6 @@ def input_tier_instance_class(custom_tier_tree):
 		tier_instance_class))
 	return tier_instance_class
 
-#XXX writing unit test for
 def get_class_by_name(custom_tier_tree, name_to_find):
 	''' Searches through the custom_tier_tree to find a class with the correct
 		name attribute and return that class object. '''
@@ -227,13 +234,116 @@ def display_tier_types(custom_tier_tree):
 		log.info("\n Tier Type options: {} \n".format(cls))
 	#return full_classes_list
 
-def input_connection_to():
-	''' Asks / forces the user to create at least one connection between 
-		the current tier instance and a lateral or above class instance '''
-	# display classes above created instance
+def make_connections(tier_instance, *selected_connections):
+	'''
+		Set an attribute of the instance of the tier to have a connection to
+		another class tier instance. selected_connections should be a list
+		of other tier_instances. 
+		Returns: Returns whether the node has a why value attached after 
+			all connections are made.
+	'''
+	#XXX need to check that connections are higher or equal level??
+	for connection in selected_connections:
+		#XXX if it is the top / initial instance in tree then no
+		# connections can be made
+		if connection == "root" and tier_instance.hierarchy_level == 0:
+			# Skips the rest of this iteration and then continues iterating
+			continue
+		# Check hierarchy level of connection and place connection accordingly
+		if connection.hierarchy_level > tier_instance.hierarchy_level:
+			# Sets the tier_instance's connections field to link 
+			# to those selected
+			tier_instance.connections_above.append(connection)
+			# Sets the connection tier instance's connections to reciprocally 
+			# reflect new connection to it
+			connection.connections_below.append(tier_instance)
 
-def make_connection(tier_instance, selected_connection):
-	pass
+		# If the connection hierarchy level is below the tier instance level
+		elif connection.hierarchy_level < tier_instance.hierarchy_level:
+			tier_instance.connections_below.append(connection)
+			connection.connections_above.append(tier_instance)
+
+		# If hierarchy levels are equal
+		# selected_connections is a list of connections essentially 
+		# (multiple args), if the connection is an equal level, it must be
+		# passed as a dict which has what type of connection (why/how)
+		# {connection: instance of conn, type: either why or how}
+		else:
+			conn_inst = connection["conncection_inst"]
+			conn_type = connection["type"]
+			if conn_type == "why":
+				tier_instance.connections_equal_why.append(conn_inst)
+				conn_inst.connections_equal_how.append(tier_instance)
+			if conn_type == "how":
+				tier_instance.connections_equal_how.append(connection)
+				connection.connections_equal_why.append(tier_instance)
+
+	# After making connections, check that the node has a why
+	has_why = check_has_why(tier_instance)
+	return has_why
+
+def check_has_why(connected_tier_inst):
+	''' This func checks that a connected_tier_instance has a why, meaning
+		either a higher up connection or an equal level connection.
+	'''
+	has_why = False
+	tier_level = connected_tier_inst.hierarchy_level
+	for conn in connected_tier_instance.connections:
+		conn_level = conn.hierarchy_level
+		# Everything must have a why.
+		if conn_level == tier_level or conn_level > tier_level:
+			has_why == True
+	return has_why
+
+
+def input_connections_to(tier_inst):
+	''' 
+		Asks / forces the user to create at least one connection between 
+		the current tier instance and a lateral or above class instance.
+	'''
+	
+	# display classes above created instance
+	keep_inputting = True
+	connections = []
+	while keep_inputting:
+		# Display options of tier instances for connections
+		# Asks for inputted connections
+		connection = input("Input connections to tier {}. ".format(tier_inst) +\
+			"At least one must be of equal or higher hierarchy level. \n")
+		connections.append(connection)
+		
+		# If input is empty, break the loop
+		if connection.strip() == "":
+			keep_inputting = False
+			break
+				
+	return connections
+
+def input_instance_name(tier_instance_class):
+	instance_name = input("What is the name of this instance of {}".format(
+		tier_instance_class))
+	return instance_name
+
+def make_instance(tier_instance_class):
+
+	inst = tier_instance_class()
+	instance_name = input_instance_name(tier_instance_class)
+	inst.name = instance_name
+	connections = input_connections_to(inst)
+	make_connections(inst, *connections)
+	return inst
+
+def make_instances(custom_tier_tree):
+	keep_inputting = True
+	while keep_inputting:	
+		log.info("Start creating an instance of a tier class.")
+		tier_instance_class = input_tier_instance_class(custom_tier_tree)
+		make_instance(tier_instance_class)
+
+		done_inputting = input("Done creating tier instances? (y/n)")
+		if done_inputting == 'y' or 'Y' or 'yes' or 'Yes': 
+			keep_inputting = False
+			break
 
 def inherit_connections(tier_instance):
 	pass
@@ -242,5 +352,12 @@ def inherit_connections(tier_instance):
 
 n_tier_classes = input_n_tier_classes()
 custom_tier_tree = input_tier_tree(n_tier_classes)
-tier_instance_class = input_tier_instance_class(custom_tier_tree)
-log.debug("Tier instance of a class: {}".format(tier_instance_class))
+
+#XXX When to call tier_instance_class? when making an instance, as triggered
+# by a button or something. For now just testing
+#tier_instance_class = input_tier_instance_class(custom_tier_tree)
+#tier_instance = tier_instance_class()
+#connections = input_connections_to(tier_instance)
+make_instances(custom_tier_tree)
+
+log.debug("Class of tier: {}".format(tier_instance_class))
