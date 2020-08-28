@@ -55,10 +55,11 @@ def create_minimum_attributes_dict(name, hierarchy_level):
 		"connections_below" : [],
 		"connections_equal_how" : [],
 		"connections_equal_why" : [],
+		"is_root" : False,
 	}
 	return attributes_dict
 
-def input_attributes():
+def input_min_attributes():
 	''' This function outlines the mandatory properties of every tier. 
 		Every tier must have a class name, such as Main Goals, and must have
 		a hierarchy level. Additional, variable class attributes can be set for
@@ -98,12 +99,24 @@ def create_tier_class(attributes_dict):
 # Having one dictionary per hierarchy level allows the tier_tree to be ordered
 # and easily searchable
 def setup_tier_tree(n_tier_classes, attributes_dicts_list):
+	'''
+		Tier tree is a list of dictionaries; the key of each dictionary 
+		is a hierarchy_level; the value of each dictionary corresponds 
+		to a list of tier_classes created at the hierarchy level.
+
+		Ex of a tier_tree filled with hierarchy_dicts: 
+		[{0: [type("Main Goals", (object,), {attributes...}), 
+		... other tiers on hierarchy_level 0..., ]}, {1: [...]}, ]
+	'''
 	log.debug("attributes_dicts_list: {}".format(attributes_dicts_list))
 	# Hierarchy level 0 is the top of the tree / most important/broad level
 	# Ex of tier_tree filled with hierarchy_dicts: 
 	# [{0: [type("Main_Goals", (object,), {attributes...}), 
 	# ... other tiers on hierarchy_level 0..., ]}, {1: [...]}, ]
 	tier_tree = []
+	#XXX assumes that attributes_dicts_list order is 0, 1, 2, etc... h_level
+	# attributes_dicts_list 's order is based on how the user chooses to input
+	# newly created tier classes.
 	#XXX could also just iterate over len of attributes_dicts_list
 	for i, tier in enumerate(range(n_tier_classes)):
 		attributes_dict = attributes_dicts_list[i]
@@ -140,11 +153,11 @@ def setup_tier_tree(n_tier_classes, attributes_dicts_list):
 def input_tier_tree(n_tier_classes):
 	'''
 		Create the individual attributes each different tier class must 
-		have based on user input and then construct the tier tree.
+		have based on user input and then constructs the tier tree.
 	'''
 	attributes_dicts_list = []
 	for	tier_class in range(n_tier_classes):
-		attributes_dict = input_attributes()
+		attributes_dict = input_min_attributes()
 		name = attributes_dict["name"]
 		keep_inputting = True
 		while keep_inputting:
@@ -242,13 +255,13 @@ def make_connections(tier_instance, *selected_connections):
 		Returns: Returns whether the node has a why value attached after 
 			all connections are made.
 	'''
-	#XXX need to check that connections are higher or equal level??
 	for connection in selected_connections:
-		#XXX if it is the top / initial instance in tree then no
+		# if it is the top / root instance in tree then no
 		# connections can be made
-		if connection == "root" and tier_instance.hierarchy_level == 0:
+		if tier_instance.is_root == True:
 			# Skips the rest of this iteration and then continues iterating
 			continue
+
 		# Check hierarchy level of connection and place connection accordingly
 		if connection.hierarchy_level > tier_instance.hierarchy_level:
 			# Sets the tier_instance's connections field to link 
@@ -288,13 +301,16 @@ def check_has_why(connected_tier_inst):
 	'''
 	has_why = False
 	tier_level = connected_tier_inst.hierarchy_level
-	for conn in connected_tier_instance.connections:
-		conn_level = conn.hierarchy_level
-		# Everything must have a why.
-		if conn_level == tier_level or conn_level > tier_level:
-			has_why == True
-	return has_why
 
+	# Everything must have a why. Except root.
+	if connected_tier_inst.is_root == False:
+		empty = []
+		conns_above = conn.connections_above
+		conns_equal_why = conn.connections_equal_why
+		if conns_above != empty or conns_equal_why != empty:
+			has_why == True
+
+	return has_why
 
 def input_connections_to(tier_inst):
 	''' 
@@ -303,19 +319,26 @@ def input_connections_to(tier_inst):
 	'''
 	
 	# display classes above created instance
-	keep_inputting = True
+	# Continuously ask to make connections if the tier is not the root tier
+	if tier_inst.is_root == False:
+		keep_inputting = True
+	else: 
+		keep_inputting = False
+
 	connections = []
 	while keep_inputting:
 		# Display options of tier instances for connections
 		# Asks for inputted connections
 		connection = input("Input connections to tier {}. ".format(tier_inst) +\
-			"At least one must be of equal or higher hierarchy level. \n")
-		connections.append(connection)
+			"At least one must be of equal or higher hierarchy level," +\
+			" or the 'root' tier instance. \n")
 		
 		# If input is empty, break the loop
 		if connection.strip() == "":
 			keep_inputting = False
 			break
+		# Don't want to input an empty str
+		connections.append(connection)
 				
 	return connections
 
@@ -324,21 +347,46 @@ def input_instance_name(tier_instance_class):
 		tier_instance_class))
 	return instance_name
 
-def make_instance(tier_instance_class):
+def set_root(tier_inst, is_root):
+	root_was_set = False
+	if is_root:
+		if tier_inst.hierarchy_level == 0:
+			tier_inst.is_root = True
+			root_was_set = True
+		else:
+			log.error("Root was not set b/c the root must be set " +\
+				"at hierarchy level 0.")
+	return root_was_set
 
+def input_is_root(tier_inst):
+	'''
+		Set is_root to true if the user responds yes. If the user tries to 
+		set the root on a hierarchy level that isn't 0, it fails.
+	'''
+	is_root = False
+	root_inp = input("Is this instance of a tier the root of your whys?" +\
+		" The ultimate goal? (y/n)")
+	if root_inp == "yes" or "Yes" or "y" or "Y":
+		is_root = True
+		root_was_set = set_root(tier_inst, is_root)
+	# root_was_set not used right now
+	return root_was_set
+
+def make_inputted_instance(tier_instance_class):
 	inst = tier_instance_class()
 	instance_name = input_instance_name(tier_instance_class)
 	inst.name = instance_name
+	root_was_set = input_is_root(inst)
 	connections = input_connections_to(inst)
 	make_connections(inst, *connections)
 	return inst
 
-def make_instances(custom_tier_tree):
+def make_inputted_instances(custom_tier_tree):
 	keep_inputting = True
 	while keep_inputting:	
 		log.info("Start creating an instance of a tier class.")
 		tier_instance_class = input_tier_instance_class(custom_tier_tree)
-		make_instance(tier_instance_class)
+		make_inputted_instance(tier_instance_class)
 
 		done_inputting = input("Done creating tier instances? (y/n)")
 		if done_inputting == 'y' or 'Y' or 'yes' or 'Yes': 
@@ -350,6 +398,7 @@ def inherit_connections(tier_instance):
 
 
 
+# Make class tier_tree
 n_tier_classes = input_n_tier_classes()
 custom_tier_tree = input_tier_tree(n_tier_classes)
 
@@ -360,4 +409,3 @@ custom_tier_tree = input_tier_tree(n_tier_classes)
 #connections = input_connections_to(tier_instance)
 make_instances(custom_tier_tree)
 
-log.debug("Class of tier: {}".format(tier_instance_class))
