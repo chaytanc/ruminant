@@ -1,6 +1,7 @@
 # vim: set sw=4 noet ts=4 fileencoding=utf-8:
 import logging
 import pdb
+from airtable_reader import Airtable_Reader
 
 class Tier_Tree():
 
@@ -8,6 +9,7 @@ class Tier_Tree():
 
 	def __init__(self):
 		self.log = self.setup_logger(logging.DEBUG)
+		self.ar = Airtable_Reader()
 
 	def setup_logger(self, logger_level):
 		''' 
@@ -79,6 +81,10 @@ class Tier_Tree():
 			desired tier_classes based on user input
 			Args: 
 				n_tier_classes: the number of tier classes you want to make
+				get_min_attrs: a function that returns an attribute dict
+					consisting of an attributes dict such as returned by
+					create_min_attributes_dict(), but with name and
+					hierarchy level filled in.
 				get_attrs: a function which returns whether to continue
 					getting class attributes and a desired class attribute
 		'''
@@ -90,7 +96,7 @@ class Tier_Tree():
 		# tier tree
 		for n_tier_class in range(n_tier_classes):
 			# input minimum attributes as defined by 
-			# self.tc.create_minimum_attributes_dict
+			# self.create_minimum_attributes_dict
 			# Gets minimum attributes such as hierarchy_level and name of 
 			# the tier class to be set
 
@@ -125,13 +131,49 @@ class Tier_Tree():
 		# Setup the class attribute for this instance's custom tier_tree
 		#set_tier_tree_attribute(tier_tree)
 		return tier_tree
+
+	def get_airtable_tier_tree(self):
+		'''
+		Returns a tier_tree object based on the fields setup in Airtable.
+		Use Ruminant Template to see an example.
+		'''
+
+		tier_tree = []
+		# For each table create a different attributes dict with different
+		# names and hierarchy level
+		for hierarchy_level, tables in self.ar.all_tables.items():
+			for (table_name, airtable) in tables:
+				self.log.info("table_name: {}, airtable: {} \n".format(
+					table_name, airtable))
+
+				# set tier_tree attr_dict with name and h_level for each 
+				# table
+				attr_dict = self.create_minimum_attributes_dict(
+					table_name, hierarchy_level)
+
+				# set all the tier_tree class attributes based on table fields
+				fields = self.ar.all_tables_field_names
+				table_fields = fields[table_name]
+				for field_name in table_fields:
+					attr_dict[field_name] = None
+				# create and store tier_trees based on the fields
+				tier_tree = self.construct_tier_tree(tier_tree, attr_dict)
+		return tier_tree
+
 		
 	def construct_tier_tree(self, tier_tree, attributes_dict):
 		'''
+		Args:
+			tier_tree: could be an empty list or an existing tier_tree
+			attributes_dict: dictionary with desired class attributes and a 
+				default value.
+				Ex: {'Desc' : 'Default description', 'Time created' : None}
+
 			This function constructs / appends to a given tier_tree using
 			an attributes_dict and its hierarchy level to appropriately
 			assign it to a hierarchy_dict within tier_tree.
-			tier_tree Ex:
+			tier_tree Ex: [{0 : [<Main class object>]}, 
+				{1 : [<Tasks class object>]}]
 		'''
 		
 		# Create a tier_class with the newly created attributes_dict

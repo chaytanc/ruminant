@@ -10,6 +10,10 @@ __pycache__/
 *.swp
 *.swo
 
+####### CUSTOM ###########
+keys.py
+#^^^^^^ CUSTOM ^^^^^^^^^^^
+
 # Distribution / packaging
 .Python
 build/
