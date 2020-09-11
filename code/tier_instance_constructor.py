@@ -6,6 +6,7 @@ class Tier_Instance_Constructor():
 
 	def __init__(self):
 		self.log = self.setup_logger(logging.DEBUG)
+		#self.tier_instances = []
 
 	def setup_logger(self, logger_level):
 		''' 
@@ -52,6 +53,9 @@ class Tier_Instance_Constructor():
 		return found_class
 
 	def display_tier_types(self, custom_tier_tree):
+		'''
+			Displays tier type options in std out
+		'''
 		full_classes_list = self.get_all_classes(custom_tier_tree)
 		# Show tier types / options  to choose from based on 
 		# creation of tier_tree
@@ -141,5 +145,65 @@ class Tier_Instance_Constructor():
 				self.log.error("Root was not set b/c the root must be set " +\
 					"at hierarchy level 0.")
 		return root_was_set
+
+	def match_inst_name_to_inst(self, name, instances):
+		matching_inst = None
+		for inst in instances:
+			if name == inst.name:
+				matching_inst = inst
+		return matching_inst
+
+	def set_inst_attributes(self, tier_class, get_inst_attr, fields_to_exclude):
+		'''
+		This func loops through airtable fields, assuming the class attribute
+		tier_class.fields has been set (get_airtable_tier_tree), and 
+		forces instances to fill in these fields with instance attributes
+		Args:
+			tier_class: class object of the tier instance being created
+			get_inst_attr: func that takes in the field (as a str) 
+				and Tier_Instance_Class as args. It must return the 
+				value of the attribute.
+			fields_to_exclude: a list of strs with the name of an airtable
+				field that you do not want set as an instance attribute here
+		Returns: a dict of attributes with set values for each field in the 
+			airtable. To actually set instance attrs, use the returned val
+			here to do inst = Tier_Tree(instance_attributes) when constructing.
+		'''
+		instance_attributes = {}
+		#XXX
+		# Prints and shows CLASS attributes... we want to set each instance to
+		# have set an instance property for every column represented by the
+		# class attribute names of columns
+		for property, value in vars(tier_class).items():
+			self.log.info('\n prop: {}, value: {}'.format(property, value))
+
+		# loop through class fields and set the instance attribute
+		for field in tier_class.fields:
+			if field not in fields_to_exclude:
+				attr_val = get_inst_attr(tier_class, field)
+				instance_attributes[field] = attr_val
+
+		return instance_attributes
+
+	def get_fields_to_exclude(self, Tier_Instance_Class):
+		'''
+		Args: a class obj of the tier instance's desired class, ex: Main Goals
+			obj
+		Returns: a tuple with two lists of strings. The first is a 
+			tier_class's given fields that contain the word connection 
+			and can be used as a fields_to_exclude param. The second is a list
+			of field (strs) that do not contain "connection".
+		'''
+		fields_to_exclude = []
+		fields = Tier_Instance_Class.fields
+		for field in fields:
+			if "Connection" in field or "connection" in field:
+				fields_to_exclude.append(field)
+
+		return fields_to_exclude 
+
+
+
+	
 
 

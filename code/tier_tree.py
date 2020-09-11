@@ -28,7 +28,10 @@ class Tier_Tree():
 			Thus, arguments passed here will get set. 
 			Pass in a dict or list for args to init multiple parameters.
 		'''
-		constructor_arg = arg
+
+		# Sets instance attributes
+		self.instance_attrs = arg
+		#constructor_arg = arg
 
 	def create_minimum_attributes_dict(self, name, hierarchy_level):
 		'''
@@ -45,6 +48,8 @@ class Tier_Tree():
 			#XXX user must input connections later, but all classes 
 			# have this field is a class attribute! 
 			# I need an instance attribute!
+			#XXX these are made automatically by the Ruminant template as they
+			# are field names
 			"connections_above" : [],
 			"connections_below" : [],
 			"connections_equal_how" : [],
@@ -103,12 +108,18 @@ class Tier_Tree():
 			#attributes_dict = self.input_min_attributes()
 			attributes_dict = get_min_attrs()
 			name = attributes_dict["name"]
+			# a list of all the names of the class attribute names added here
+			attributes = []
 
 			keep_inputting = True
 			while keep_inputting:
 				# Input whatever function will return a desired 
 				# class_attribute for a given name of a tier_class
 				# Must also return whether inputting should continue
+				#NOTE: this is a major difference between this func and airtable
+				# version of the func because this one has the user input
+				# the field names here whereas the airtable tier_tree
+				# relies on fields being set in airtable already
 				keep_inputting, class_attribute = get_attrs(name)
 				if keep_inputting == False:
 					break
@@ -123,6 +134,10 @@ class Tier_Tree():
 					# Stores the unset class_attribute 
 					# in the dict of class attrs as a temporary None type
 					attributes_dict[class_attribute] = None
+					attributes.append(class_attribute)
+
+			# Sets fields class attribute with names of all added class attrs
+			attributes_dict["fields"] = attributes
 
 			# Creates a Tier_Class with the filled out attributes_dict
 			# and then adds it to the tier_tree
@@ -151,11 +166,15 @@ class Tier_Tree():
 				attr_dict = self.create_minimum_attributes_dict(
 					table_name, hierarchy_level)
 
+				#XXX add each field from airtable to a class attribute keeping
+				# track of all column / field names and accepted type
+
 				# set all the tier_tree class attributes based on table fields
 				fields = self.ar.all_tables_field_names
 				table_fields = fields[table_name]
-				for field_name in table_fields:
-					attr_dict[field_name] = None
+				attr_dict["fields"] = table_fields
+				#for field_name in table_fields:
+					#attr_dict[field_name] = None
 				# create and store tier_trees based on the fields
 				tier_tree = self.construct_tier_tree(tier_tree, attr_dict)
 		return tier_tree

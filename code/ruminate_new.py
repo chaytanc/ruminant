@@ -67,11 +67,12 @@ class Ruminant():
 			n_tier_classes, input_min_attributes, input_class_attrs_func)
 		return custom_tier_tree
 
-	def get_tier_tree_instances(self):
+	def get_tier_tree_instances(self, custom_tier_tree):
 		'''
+			Args: tier tree as constructed by get_airtable_tier_tree 
+				in tier_tree.py for example
 			Makes instances of classes within the tier tree
 		'''
-		custom_tier_tree = self.get_tier_tree()
 		instances = self.tii.make_inputted_instances(custom_tier_tree)
 		self.log.info("Instances: {}".format(instances))
 		return instances
@@ -147,8 +148,8 @@ class Ruminant():
 
 
 ruminant = Ruminant(tier_tree_path, tier_instances_path)
-#instances = ruminant.get_tier_tree_instances()
 #instances = ruminant.make_and_save_objs()
-ruminant.tt.get_airtable_tier_tree()
+tier_tree = ruminant.tt.get_airtable_tier_tree()
+instances = ruminant.get_tier_tree_instances(tier_tree)
 	
 	
