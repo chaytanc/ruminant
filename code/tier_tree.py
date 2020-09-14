@@ -3,7 +3,14 @@ import logging
 import pdb
 from airtable_reader import Airtable_Reader
 
+#NOTE the self passed in must be the class created by create_tier_class
+def class_constructor(self, arg):
+	self.instance_attributes = arg
+
 class Tier_Tree():
+	'''
+	tier_tree Ex: [{0 : [<Main class object>]}, {1 : [<Tasks class object>]}]
+	'''
 
 	custom_tier_tree = []
 
@@ -20,20 +27,26 @@ class Tier_Tree():
 		logging.basicConfig(level=logger_level)
 		logger = logging.getLogger(__name__)
 		return logger
+#
+#	def class_constructor(self, arg):
+#		'''
+#			This function is called when __init__ is called because 
+#			it is set as class attribute function for __init__. 
+#			Thus, arguments passed here will get set. 
+#			Pass in a dict or list for args to init multiple parameters.
+#		'''
+#
+#		# Sets instance attributes
+#		#XXX NOT WORKING, instance.instance_attributes fails
+#		# SELF IS Tier_Tree() here not the class created by create_tier_class
+#
+#		self.log.debug("\nClass __init__!")
+#		self.instance_attributes = arg
+#		self.log.debug("instance_attributes: {}".format(
+#			self.instance_attributes))
 
-	def class_constructor(self, arg):
-		'''
-			This function is called when __init__ is called because 
-			it is set as class attribute function for __init__. 
-			Thus, arguments passed here will get set. 
-			Pass in a dict or list for args to init multiple parameters.
-		'''
-
-		# Sets instance attributes
-		self.instance_attrs = arg
-		#constructor_arg = arg
-
-	def create_minimum_attributes_dict(self, name, hierarchy_level):
+	def create_minimum_attributes_dict(
+		self, name, hierarchy_level, airtable_instance):
 		'''
 			The idea behind this is that this attributes_dict is the 
 			MINIMUM for all tier_classes created. They may include more 
@@ -42,9 +55,10 @@ class Tier_Tree():
 			like "Main" or "Tasks" is setup.
 		'''
 		attributes_dict = {
-			"__init__" : self.class_constructor,
+			"__init__" : class_constructor,
 			"name" : name,
 			"hierarchy_level" : hierarchy_level,
+			"airtable_instance" : airtable_instance,
 			#XXX user must input connections later, but all classes 
 			# have this field is a class attribute! 
 			# I need an instance attribute!
@@ -54,7 +68,6 @@ class Tier_Tree():
 			"connections_below" : [],
 			"connections_equal_how" : [],
 			"connections_equal_why" : [],
-			"is_root" : False,
 		}
 		return attributes_dict
 
@@ -147,8 +160,12 @@ class Tier_Tree():
 		#set_tier_tree_attribute(tier_tree)
 		return tier_tree
 
-	def get_airtable_tier_tree(self):
+	def get_airtable_tier_tree(self, all_tables, all_tables_field_names):
 		'''
+		Args: 
+			all_tables: is a dict of airtable table instances as returned by
+				Airtable_Reader.get_all_tables() and found in Ruminant class.
+				Keys are hierarchy_levels.
 		Returns a tier_tree object based on the fields setup in Airtable.
 		Use Ruminant Template to see an example.
 		'''
@@ -156,7 +173,8 @@ class Tier_Tree():
 		tier_tree = []
 		# For each table create a different attributes dict with different
 		# names and hierarchy level
-		for hierarchy_level, tables in self.ar.all_tables.items():
+		#self.ar.all_tables.items()
+		for hierarchy_level, tables in all_tables.items():
 			for (table_name, airtable) in tables:
 				self.log.info("table_name: {}, airtable: {} \n".format(
 					table_name, airtable))
@@ -164,17 +182,15 @@ class Tier_Tree():
 				# set tier_tree attr_dict with name and h_level for each 
 				# table
 				attr_dict = self.create_minimum_attributes_dict(
-					table_name, hierarchy_level)
+					table_name, hierarchy_level, airtable)
 
 				#XXX add each field from airtable to a class attribute keeping
 				# track of all column / field names and accepted type
 
 				# set all the tier_tree class attributes based on table fields
-				fields = self.ar.all_tables_field_names
-				table_fields = fields[table_name]
+				#fields = self.ar.all_tables_field_names
+				table_fields = all_tables_field_names[table_name]
 				attr_dict["fields"] = table_fields
-				#for field_name in table_fields:
-					#attr_dict[field_name] = None
 				# create and store tier_trees based on the fields
 				tier_tree = self.construct_tier_tree(tier_tree, attr_dict)
 		return tier_tree

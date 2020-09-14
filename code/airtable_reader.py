@@ -11,7 +11,8 @@ class Airtable_Reader():
 		self.at = self.setup_airtable("Main Quests")
 		#self.tt = Tier_Tree()
 		self.log = self.setup_logger(logging.DEBUG)
-		self.read_all_tables()
+		#XXX is not called in ruminant.py
+		#self.read_all_tables()
 
 	def setup_logger(self, logger_level):
 		''' 
@@ -23,7 +24,6 @@ class Airtable_Reader():
 		logger = logging.getLogger(__name__)
 		return logger
 
-	#XXX redundant copy paste from ruminate_new.py... clean up later
 	def setup_airtable(self, table):
 		'''
 		Args: 
@@ -96,7 +96,8 @@ class Airtable_Reader():
 			return format.
 			fields_to_exclude: a list of field names as strings which to not
 			include in get_all_field_names's return
-		Returns all the field names of columns in a table given its records.
+		Returns: a list of all the field names of columns in a table given its 
+			records.
 		NOTE: if the column is empty this will not work fully. Refer
 		to the ruminant template.
 		'''
@@ -116,7 +117,7 @@ class Airtable_Reader():
 		Args: see get_all_tables_records return format
 
 		Returns a dict. Keys are a table's name, values are a table's field 
-			names as strings.
+			names as a list of strings.
 		'''
 		all_tables_field_names = {}
 		for table_name, records_list in all_tables_records.items():
@@ -124,45 +125,4 @@ class Airtable_Reader():
 			all_tables_field_names[table_name] = field_names
 
 		return all_tables_field_names
-
-	def read_all_tables(self):
-		'''
-		Sets airtable_reader instance to have attributes of:
-		all_tables, all_tables_records, all_tables_field_names
-		to avoid redundant queries. Called in the init of Airtable_Writer.
-		'''
-		self.all_tables = self.get_all_tables()
-		self.log.debug("\nAirtable Reader all_tables: {}".format(
-			self.all_tables))
-		self.all_tables_records = self.get_all_tables_records(self.all_tables) 
-		self.log.debug("\nAirtable Reader all_tables_records: {}".format(
-			self.all_tables_records))
-		self.all_tables_field_names = self.get_all_tables_field_names(
-			self.all_tables_records)
-		self.log.debug("\nAirtable Reader all_tables_field_names: {}".format(
-			self.all_tables_field_names))
-
-
-#	def get_tier_class_names_from_fields(self, tables):
-#		'''
-#			This reads the fields of all tables in an airtable and should 
-#			be compatible with tier_tree and returns a list of all their names.
-#		'''
-#		class_names = []
-#		for table in tables:
-#
-#			name = the string inputted to keys.tables...
-
-#XXX do this in airtable writer when setting up the h_levels and simultaneously
-# reading the names of the tables etc.... should separate those funcs
-#	def get_min_attributes_dict(self, airtable):
-#		'''
-#			Get the class name and hierarchy level and create an 
-#			attributes dict based on the Airtable passed in.
-#		'''
-#		name =  
-#		hierarchy_level = keys.tables.
-#		attr_dict = self.tt.create_min_attributes_dict(name, hierarchy_level)
-#		#XXX fill connections in through instances
-#		return attr_dict
 			

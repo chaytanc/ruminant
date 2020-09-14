@@ -10,11 +10,13 @@ import logging
 class Airtable_Writer():
 
 	def __init__(self):
+		#XXX this and all_tables should be a property of ruminant / needs to 
+		# somehow update periodically
 		self.ar = Airtable_Reader()
 		self.tt = Tier_Tree()
 		self.log = self.setup_logger(logging.DEBUG)
 		#XXX only want to query for tables once so stored it here
-		self.ar.read_all_tables()
+		#self.ar.read_all_tables()
 		#self.all_tables = self.ar.get_all_tables()
 
 	def setup_logger(self, logger_level):
@@ -27,7 +29,7 @@ class Airtable_Writer():
 		logger = logging.getLogger(__name__)
 		return logger
 
-	def set_h_levels(self, all_tables):
+	def set_table_h_levels(self, all_tables, all_tables_records):
 		'''
 			Sets every Airtable table to have an h_level in the 
 			Hierarchy Level Airtable that corresponds to keys.tables.
@@ -42,14 +44,12 @@ class Airtable_Writer():
 				self.log.info("table_name: {}, airtable: {} \n".format(
 					table_name, airtable))
 
-				#XXX moved attr_dict out of here, separation of powers & whatnot
-
 				# set airtable to have correct h_level
-				table_records = self.ar.all_tables_records[table_name]
-				self.update_h_level_fields(
+				table_records = all_tables_records[table_name]
+				self.set_h_level_fields(
 					table_records, hierarchy_level, airtable)
 
-	def update_h_level_fields(self, all_records, hierarchy_level, airtable):
+	def set_h_level_fields(self, all_records, hierarchy_level, airtable):
 		'''
 		Args:
 			all_records: every record within one airtable
@@ -66,42 +66,42 @@ class Airtable_Writer():
 			# set airtable record's h_level 
 			airtable.update(r_id, fields)
 
+	def set_records(self, instances, all_tables):
+		'''
+		Args:
+			#instances: a dict of instance objects and the table they belong to. 
+			#Keys are the table, value is a list of of instances 
+			#of a tier_class from tier_tree representing one record in a table. 
+			instances: a list of all instances of tier_classes from tier_tree.
+			The list collectively represents all rows added to an airtable table. 
+			As returned by make_inputted_instances from tier_instance_inputter.
+			all_tables: Ruminant().all_tables
 
-#	#XXX belongs in tier_tree.py
-#	def get_tier_tree(self):
-#		'''
-#		Returns a tier_tree object based on the fields setup in Airtable.
-#		Use Ruminant Template to see an example.
-#		'''
-#
-#		tier_tree = []
-#		# For each table create a different attributes dict with different
-#		# names and hierarchy level
-#		for hierarchy_level, tables in self.ar.all_tables.items():
-#			for (table_name, airtable) in tables:
-#				self.log.info("table_name: {}, airtable: {} \n".format(
-#					table_name, airtable))
-#
-#				# set tier_tree attr_dict with name and h_level for each 
-#				# table
-#				attr_dict = self.tt.create_minimum_attributes_dict(
-#					table_name, hierarchy_level)
-#
-#				# set all the tier_tree class attributes based on table fields
-#				fields = self.ar.all_tables_field_names
-#				table_fields = fields[table_name]
-#				for field_name in table_fields:
-#					attr_dict[field_name] = None
-#				# create and store tier_trees based on the fields
-#				tier_tree = self.tt.construct_tier_tree(tier_tree, attr_dict)
-#
-#		return tier_tree
+		Creates a new record in the correct table for each instance in instances
+		'''
 
+		# Each instance and it's attributes represent one record,
+		# attribute names are column titles, values are the value of
+		# that column for that row / record
+		#inst_table = all_tables[instance.__class__.name]
+		records = []
+		for instance in instances:
+			#NOTE: instance_attributes are constructed by 
+			# set_instance_attributes in tier_instance_constructor.py
+			inst_table = instance.__class__.airtable_instance
+			record = instance.instance_attributes['airtable_attributes']
+			# for batches: Append each column / field / instance attribute 
+			# to records which will then update the table
+			#records.append(record)
+
+			# Create airtable record in that table
+			inst_table.insert(record)
+		#inst_table.batch_insert(records)
 
 
 #XXX call this from main of ruminate_new.py once cleaned up
-aw = Airtable_Writer()
-aw.set_h_levels(aw.ar.all_tables)
+#aw = Airtable_Writer()
+#aw.set_h_levels(aw.ar.all_tables)
 
 
 

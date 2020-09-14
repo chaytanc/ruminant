@@ -8,7 +8,8 @@ class Tier_Instance_Inputter():
 	def __init__(self):
 		self.log = self.setup_logger(logging.DEBUG)
 		self.tic = Tier_Instance_Constructor()
-		self.instances = []
+		#XXX don't currently use these store instances
+		#self.inputter_instances = []
 
 	def setup_logger(self, logger_level):
 		''' 
@@ -71,7 +72,6 @@ class Tier_Instance_Inputter():
 					
 		return connections
 
-	#XXX working to abstractize this for all attr
 	def input_instance_attr(self, tier_instance_class, attr):
 		instance_attr = input("What is the {} of this instance of {}".format(
 			attr, tier_instance_class))
@@ -82,14 +82,16 @@ class Tier_Instance_Inputter():
 			Set is_root to true if the user responds yes. If the user tries to 
 			set the root on a hierarchy level that isn't 0, it fails.
 		'''
+		h_level = tier_inst.__class__.hierarchy_level
 		is_root = False
-		root_inp = input("Is this instance of a tier the root of your whys?" +\
-			" The ultimate goal? (y/n)")
-		if root_inp == "yes" or \
+		if h_level == 0:
+			root_inp = input("Is this instance of a tier the root of your" +\
+				" whys? The ultimate goal? (y/n)")
+			if root_inp == "yes" or \
 				root_inp == "Yes" or \
 				root_inp == "y" or \
 				root_inp == "Y":
-			is_root = True
+				is_root = True
 		root_was_set = self.tic.set_root(tier_inst, is_root)
 		# root_was_set not used right now
 		return root_was_set
@@ -98,41 +100,41 @@ class Tier_Instance_Inputter():
 		'''
 			Makes one instance of a Tier Class based on input
 		'''
-		#XXX working here to setup instance arguments before instantiating
-		# list of all fields to set
+		# Sets up instance attributes that aren't connections before
+		# instantiation
 		fields_to_exclude = self.tic.get_fields_to_exclude(
 			Tier_Instance_Class)
-		instance_attrs = self.tic.set_inst_attributes(
+		instance_attrs = self.tic.set_instance_attributes(
 			Tier_Instance_Class, self.input_instance_attr, fields_to_exclude)
 		inst = Tier_Instance_Class(instance_attrs)
 
-		#XXX inst.name is redundant since the Name field forces it to be set
-		instance_name = self.input_instance_attr(Tier_Instance_Class, "name")
-		inst.name = instance_name
 		root_was_set = self.input_is_root(inst)
-		#XXX need to refactor order of calls to functions such that I can pass
-		# in correct things
-		connections = self.input_connections_to(inst, instances)
-		self.tic.make_connections(inst, *connections)
+		#XXX refactored to make connections after setting up instance
+		# attributes
+		#connections = self.input_connections_to(inst, instances)
+		#self.tic.make_connections(inst, *connections)
 		return inst
 
+	#XXX separate making the instance from inputting by passing in function
+	# to get the instance
 	def make_inputted_instances(self, custom_tier_tree):
 		'''
 			Continuously makes instances of Tier Classes until the user
-			inputs an empty string so as to signal the end.
+			inputs an empty string so as to signal the end. #XXX Stores these
+			instances in tier_instance_inputter.inputter_instances and returns
+			Returns: list of instances created
 		'''
 		instances = []
 		keep_inputting = True
 		while keep_inputting:	
-			self.log.info("Start creating an instance of a tier class.")
-			self.display_instances(instances)
+			self.log.info("\n Start creating an instance of a tier class.")
 			tier_instance_class = self.input_tier_instance_class(
 				custom_tier_tree)
 			tier_inst = self.make_inputted_instance(tier_instance_class)
-			#XXX working here to setup instance attributes and actually store
-			# instance
-			#self.tic.set_inst_attributes(tier_instance_class)
 			instances.append(tier_inst)
+			self.tic.display_instances_and_props(instances)
+			#XXX don't have need to store in inputter_instances right now
+			#self.inputter_instances.append(tier_inst)
 
 			done_inputting = input("Done creating tier instances? (y/n)")
 			if done_inputting == 'y' or \
@@ -142,11 +144,6 @@ class Tier_Instance_Inputter():
 				keep_inputting = False
 				break
 		return instances
-
-	def display_instances(self, instances):
-		self.log.info('Instance options: \n')
-		for instance in instances:
-			self.log.info('{} \n'.format(instance.name))
 
 
 

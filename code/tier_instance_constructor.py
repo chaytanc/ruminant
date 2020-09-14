@@ -5,7 +5,7 @@ import pdb
 class Tier_Instance_Constructor():
 
 	def __init__(self):
-		self.log = self.setup_logger(logging.DEBUG)
+		self.log = self.setup_logger(logging.INFO)
 		#self.tier_instances = []
 
 	def setup_logger(self, logger_level):
@@ -25,11 +25,9 @@ class Tier_Instance_Constructor():
 		full_classes_list = []
 		# Gets all hierarchy levels from tier_tree
 		for i, hierarchy_dict in enumerate(custom_tier_tree):
-			self.log.debug("i: {}".format(i))
 			# Get all classes in each hierarchy level
 			# NOTE that i is a key in the case of hierarchy_dict, not an index
 			classes_list = hierarchy_dict[i]
-			self.log.debug("hierarchy_dict[i]: {}".format(classes_list))
 			for cls in classes_list:
 				#pass in a fucntion to perform here instead of returning things?
 				# That doesn't seem to work well because it requires setup of 
@@ -67,7 +65,7 @@ class Tier_Instance_Constructor():
 		'''
 			Set an attribute of the instance of the tier to have a connection to
 			another class tier instance. selected_connections should be a list
-			of other tier_instances. 
+			of other tier_instances to connect tier_instance with. 
 			Returns: Returns whether the node has a why value attached after 
 				all connections are made.
 		'''
@@ -132,14 +130,21 @@ class Tier_Instance_Constructor():
 
 	def set_root(self, tier_inst, is_root):
 		'''
-			One node on the tree must be the root why / have no why 
-			connections. This function sets a tier instance's attribute
-			to reflect if it is the root.
+		Args:
+			is_root: input from user whether the instance should be set to root
+
+		One inst / node on the tree must be the root why / have no why 
+		connections. This function sets a tier instance's attribute
+		to reflect if it is the root.
 		'''
 		root_was_set = False
 		if is_root:
 			if tier_inst.hierarchy_level == 0:
-				tier_inst.is_root = True
+				#NOTE: instance attribute not class attribute. is_root is
+				# evaluated for each record
+				#XXX making instance_attributes have two dicts, one for 
+				# record fields and one for other attributes like is_root
+				tier_inst.instance_attributes["other_attributes"]["is_root"] = True
 				root_was_set = True
 			else:
 				self.log.error("Root was not set b/c the root must be set " +\
@@ -153,11 +158,14 @@ class Tier_Instance_Constructor():
 				matching_inst = inst
 		return matching_inst
 
-	def set_inst_attributes(self, tier_class, get_inst_attr, fields_to_exclude):
+	def set_instance_attributes(
+			self, tier_class, get_inst_attr, fields_to_exclude):
 		'''
 		This func loops through airtable fields, assuming the class attribute
 		tier_class.fields has been set (get_airtable_tier_tree), and 
-		forces instances to fill in these fields with instance attributes
+		forces instances to fill in these fields with instance attributes.
+		It also sets up any other instance attribute defaults desired, such
+		as is_root.
 		Args:
 			tier_class: class object of the tier instance being created
 			get_inst_attr: func that takes in the field (as a str) 
@@ -169,7 +177,9 @@ class Tier_Instance_Constructor():
 			airtable. To actually set instance attrs, use the returned val
 			here to do inst = Tier_Tree(instance_attributes) when constructing.
 		'''
-		instance_attributes = {}
+		instance_attributes = {
+			'airtable_attributes' : {}, 'other_attributes' : {}
+		}
 		#XXX
 		# Prints and shows CLASS attributes... we want to set each instance to
 		# have set an instance property for every column represented by the
@@ -181,7 +191,11 @@ class Tier_Instance_Constructor():
 		for field in tier_class.fields:
 			if field not in fields_to_exclude:
 				attr_val = get_inst_attr(tier_class, field)
-				instance_attributes[field] = attr_val
+				instance_attributes['airtable_attributes'][field] = attr_val
+				#instance_attributes[field] = attr_val
+
+		# Set is_root instance attribute to default to False
+		instance_attributes['other_attributes']['is_root'] = False
 
 		return instance_attributes
 
@@ -200,7 +214,42 @@ class Tier_Instance_Constructor():
 			if "Connection" in field or "connection" in field:
 				fields_to_exclude.append(field)
 
+		# Hierarchy_Level gets automatically set by class and should be excluded
+		fields_to_exclude.append("Hierarchy Level")
+
 		return fields_to_exclude 
+
+	def display_instances_and_props(self, instances):
+
+		self.log.info('Instances: {} \n'.format(instances))
+		self.log.info('Instance options: \n')
+		for instance in instances:
+			self.log.info('Instance: {} \n'.format(instance.name))
+			self.log.info('Instance properties: {} \n'.format(instance.__dict__))
+
+
+	#XXX maybe instead of making another global datatype to be passed around,
+	# you could just make it so the table whch the instance belongs to is one
+	# of it's class properties.... then you could do instance.__class__.table
+	# and it would be much cleaner
+	def get_instance_dict(self, instances, all_tables):
+		'''
+		Returns a dict with keys as the table which the instances belong to
+		and values being a list of instances to go in the table.
+		Ex: instance_dict = 
+			{<Airtable Main Quests> : [<tier_tree.Main Quests object at 0x142>]}
+		'''
+
+		instance_dict = {}
+		for instance in instances:
+			inst_table = instance.__class__.name
+			for tables_list in all_tables.values():
+				for table_name, airtable in tables_list:
+					if inst_table == table_name:
+						instance_dict[airtable] = instance
+
+		return instance_dict
+
 
 
 

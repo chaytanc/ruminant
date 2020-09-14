@@ -5,6 +5,8 @@ from tier_tree import Tier_Tree
 from tier_tree_inputter import Tier_Tree_Inputter
 from tier_instance_constructor import Tier_Instance_Constructor
 from tier_instance_inputter import Tier_Instance_Inputter
+from airtable_reader import Airtable_Reader
+from airtable_writer import Airtable_Writer
 import pickle as pkl
 import os
 import keys
@@ -42,8 +44,23 @@ class Ruminant():
 		self.tic = Tier_Instance_Constructor()
 		self.tii = Tier_Instance_Inputter()
 
+		self.aw = Airtable_Writer()
+		self.ar = Airtable_Reader()
+		#XXX may need to update all_tables_records periodically
+		self.all_tables = self.ar.get_all_tables()
+		self.all_tables_records = self.ar.get_all_tables_records(
+			self.all_tables)
+		#XXX keep track of field accepted types? Like Status = To Do
+		self.all_tables_field_names = self.ar.get_all_tables_field_names(
+			self.all_tables_records)
+		
 		self.tier_tree_path = tier_tree_path
 		self.tier_instances_path = tier_instances_path
+
+		self.tier_tree = None
+		#XXX this would probably be more useful if it was {airtable table object : [instances]}
+		# {'table name / tier class' : [instances]}
+		self.tier_instances = {}
 
 	def setup_logger(self, logger_level):
 		''' 
@@ -65,6 +82,8 @@ class Ruminant():
 		input_min_attributes = self.ttin.input_min_attributes
 		custom_tier_tree = self.tt.setup_tier_tree_attributes(
 			n_tier_classes, input_min_attributes, input_class_attrs_func)
+		#XXX may not be necessary
+		self.tier_tree = custom_tier_tree
 		return custom_tier_tree
 
 	def get_tier_tree_instances(self, custom_tier_tree):
@@ -74,8 +93,21 @@ class Ruminant():
 			Makes instances of classes within the tier tree
 		'''
 		instances = self.tii.make_inputted_instances(custom_tier_tree)
-		self.log.info("Instances: {}".format(instances))
+		#self.log.info("Instances: {}".format(instances))
+		self.tic.display_instances_and_props(instances)
+		self.update_ruminant_instances(instances)
 		return instances
+
+	def update_ruminant_instances(self, instances):
+		'''
+		Takes the given instances and overwrites Ruminant().tier_instances with
+		instances provided. self.tier_instances key is instance's class name, 
+		value is the instances list.
+		'''
+		# Gets the class_name from the 0th element assuming that all instances
+		# in the given list are of the same type
+		class_name = instances[0].__class__.name
+		self.tier_instances[class_name] = instances
 
 	def save_obj(self, obj, obj_file_path):
 		'''
@@ -120,7 +152,7 @@ class Ruminant():
 			all instances of its classes and pickles them to local files.
 		'''
 		custom_tier_tree = self.get_tier_tree()
-		#XXX can't pickle a class or class attributes. 
+		#NOTE can't pickle a class or class attributes. 
 		# Need a different way of saving and retrieviing classes that 
 		# the user made. Maybe just upload and download that data to 
 		# Airtable immediately without local file intermediate.
@@ -129,27 +161,20 @@ class Ruminant():
 		self.save_obj(instances, self.tier_instances_path)
 		return instances
 
-	def update_airtable(self, airtable, tier_tree, instances):
-		'''
-			Using the instances that have been created, update the corresponding
-			fields based on tier_tree with those records.
-		'''
-		# for instance in instances:
-			# Check if any instance Name fields match any airtable Name fields
-			# If they match, update
-				# Identify fields to update
-				# match the instance's class with airtable field to update
-				# (using keys.py?)
-				# Replace any fields that instance has filled in the airtable
-			# Else, create new record in the airtable and update fields that
-			# the instance has filled in
-		
+	def update_airtable_h_levels(self):
+		self.aw.set_table_h_levels(self.all_tables, self.all_tables_records)
+
+	def update_airtable_records(self, tier_tree):
+		instances = self.get_tier_tree_instances(tier_tree)
+		self.aw.set_records(instances, self.all_tables)
 	
 
 
-ruminant = Ruminant(tier_tree_path, tier_instances_path)
+r = Ruminant(tier_tree_path, tier_instances_path)
 #instances = ruminant.make_and_save_objs()
-tier_tree = ruminant.tt.get_airtable_tier_tree()
-instances = ruminant.get_tier_tree_instances(tier_tree)
+tier_tree = r.tt.get_airtable_tier_tree(r.all_tables, r.all_tables_field_names)
+r.update_airtable_h_levels()
+#instances = r.get_tier_tree_instances(tier_tree)
+r.update_airtable_records(tier_tree)
 	
 	
