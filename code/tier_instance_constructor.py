@@ -6,7 +6,7 @@ class Tier_Instance_Constructor():
 
 	def __init__(self):
 		self.log = self.setup_logger(logging.INFO)
-		#self.tier_instances = []
+		self.staged_instances = {}
 
 	def setup_logger(self, logger_level):
 		''' 
@@ -59,7 +59,6 @@ class Tier_Instance_Constructor():
 		# creation of tier_tree
 		for cls in full_classes_list:
 			self.log.info("\n Tier Type options: {} \n".format(cls))
-		#return full_classes_list
 
 	def make_connections(self, tier_instance, *selected_connections):
 		'''
@@ -144,7 +143,8 @@ class Tier_Instance_Constructor():
 				# evaluated for each record
 				#XXX making instance_attributes have two dicts, one for 
 				# record fields and one for other attributes like is_root
-				tier_inst.instance_attributes["other_attributes"]["is_root"] = True
+				tier_inst.instance_attributes["other_attributes"]["is_root"] = \
+					True
 				root_was_set = True
 			else:
 				self.log.error("Root was not set b/c the root must be set " +\
@@ -154,11 +154,14 @@ class Tier_Instance_Constructor():
 	def match_inst_name_to_inst(self, name, instances):
 		matching_inst = None
 		for inst in instances:
-			if name == inst.name:
+			attributes = inst.instance_attributes['airtable_attributes']
+			if name == attributes['Name']:
 				matching_inst = inst
+		if matching_inst == None:
+			self.log.info('No matching instance was found, setting to None')
 		return matching_inst
 
-	def set_instance_attributes(
+	def get_instance_attributes(
 			self, tier_class, get_inst_attr, fields_to_exclude):
 		'''
 		This func loops through airtable fields, assuming the class attribute
@@ -210,14 +213,36 @@ class Tier_Instance_Constructor():
 		'''
 		fields_to_exclude = []
 		fields = Tier_Instance_Class.fields
-		for field in fields:
-			if "Connection" in field or "connection" in field:
-				fields_to_exclude.append(field)
+		connection_fields = self.get_connection_fields(fields)
+		#XXX returning multiple connection_fields is untested
+		self.append_args(fields_to_exclude, *connection_fields)
+		#fields_to_exclude.append(*connection_fields)
 
 		# Hierarchy_Level gets automatically set by class and should be excluded
 		fields_to_exclude.append("Hierarchy Level")
 
 		return fields_to_exclude 
+
+	#XXX ideally this function should be a function of the array base class
+	# not tier_instance_constructor, and then wouldn't take array we're
+	# appending to as arg
+	def append_args(self, array, *args):
+		for arg in args:
+			array.append(arg)
+
+
+	def get_connection_fields(self, fields):
+		'''
+		Args: 
+			fields: all airtable field names as a list of strings of one table
+		Returns: list of string field names containing "connection"
+		'''
+		connection_fields = []
+		for field in fields:
+			if "Connection" in field or "connection" in field:
+				connection_fields.append(field)
+		return connection_fields
+
 
 	def display_instances_and_props(self, instances):
 
@@ -225,13 +250,13 @@ class Tier_Instance_Constructor():
 		self.log.info('Instance options: \n')
 		for instance in instances:
 			self.log.info('Instance: {} \n'.format(instance.name))
-			self.log.info('Instance properties: {} \n'.format(instance.__dict__))
+			self.log.info('Instance properties: {} \n'.format(
+				instance.__dict__))
 
 
-	#XXX maybe instead of making another global datatype to be passed around,
-	# you could just make it so the table whch the instance belongs to is one
-	# of it's class properties.... then you could do instance.__class__.table
-	# and it would be much cleaner
+	#NOTE: can do instance.__class__.airtable_instance to get the table
+	# that an instance is a part of. Not sure that the returned datatype here
+	# is useful anymore...
 	def get_instance_dict(self, instances, all_tables):
 		'''
 		Returns a dict with keys as the table which the instances belong to
@@ -242,14 +267,25 @@ class Tier_Instance_Constructor():
 
 		instance_dict = {}
 		for instance in instances:
-			inst_table = instance.__class__.name
-			for tables_list in all_tables.values():
-				for table_name, airtable in tables_list:
-					if inst_table == table_name:
-						instance_dict[airtable] = instance
+			inst_table = instance.__class__.airtable_instance
+			instance_dict[inst_table] = instance
+#			inst_table = instance.__class__.name
+#			for tables_list in all_tables.values():
+#				for table_name, airtable in tables_list:
+#					if inst_table == table_name:
+#						instance_dict[airtable] = instance
 
 		return instance_dict
 
+	def stage_instances(self, instances, staged_instances):
+		for instance in instances:
+			self.stage_instance(instance)
+
+	def stage_instance(self, instance):
+		self.log.info('\n Staging instance {}'.format(instance))
+		attrs = instance.instance_attributes['airtable_attributes']
+		self.staged_instances[attrs["Name"]] = instance
+		self.log.info('\n Staged instances = {}'.format(self.staged_instances))
 
 
 

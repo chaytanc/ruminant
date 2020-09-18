@@ -11,8 +11,6 @@ class Airtable_Reader():
 		self.at = self.setup_airtable("Main Quests")
 		#self.tt = Tier_Tree()
 		self.log = self.setup_logger(logging.DEBUG)
-		#XXX is not called in ruminant.py
-		#self.read_all_tables()
 
 	def setup_logger(self, logger_level):
 		''' 
@@ -103,7 +101,7 @@ class Airtable_Reader():
 		'''
 		field_names = []
 		for record in all_records:
-			field_names = record['fields'].keys()
+			field_names = list(record['fields'].keys())
 			for record_field_title in field_names:
 				self.log.info('\n {} \n'.format(record_field_title))
 				if record_field_title not in field_names and \

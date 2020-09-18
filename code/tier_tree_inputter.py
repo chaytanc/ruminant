@@ -5,9 +5,10 @@ from tier_tree import Tier_Tree
 
 class Tier_Tree_Inputter():
 
-	def __init__(self):
+	def __init__(self, tt):
 		self.log = self.setup_logger(logging.DEBUG)
-		self.tt = Tier_Tree()
+		self.tt = tt
+		#self.tt = Tier_Tree()
 
 	def setup_logger(self, logger_level):
 		''' 

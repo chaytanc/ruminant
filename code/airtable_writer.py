@@ -9,15 +9,19 @@ import logging
 
 class Airtable_Writer():
 
-	def __init__(self):
+	def __init__(self, ar, tt):
 		#XXX this and all_tables should be a property of ruminant / needs to 
 		# somehow update periodically
-		self.ar = Airtable_Reader()
-		self.tt = Tier_Tree()
+		# Airtable Reader and Tier Tree from Ruminant
+		self.ar = ar
+		self.tt = tt
+		#self.ar = Airtable_Reader()
+		#self.tt = Tier_Tree()
 		self.log = self.setup_logger(logging.DEBUG)
-		#XXX only want to query for tables once so stored it here
-		#self.ar.read_all_tables()
-		#self.all_tables = self.ar.get_all_tables()
+		# Needs to be a dict so that we can easily update instances that have
+		# already been staged
+		#XXX moved to tic
+		#self.staged_instances = {}
 
 	def setup_logger(self, logger_level):
 		''' 
@@ -73,8 +77,9 @@ class Airtable_Writer():
 			#Keys are the table, value is a list of of instances 
 			#of a tier_class from tier_tree representing one record in a table. 
 			instances: a list of all instances of tier_classes from tier_tree.
-			The list collectively represents all rows added to an airtable table. 
-			As returned by make_inputted_instances from tier_instance_inputter.
+			The list collectively represents all rows added to an 
+			airtable table.  As returned by make_inputted_instances from 
+			tier_instance_inputter.
 			all_tables: Ruminant().all_tables
 
 		Creates a new record in the correct table for each instance in instances
@@ -83,8 +88,11 @@ class Airtable_Writer():
 		# Each instance and it's attributes represent one record,
 		# attribute names are column titles, values are the value of
 		# that column for that row / record
+
+		#NOTE: batch insertion not supported right now
 		#inst_table = all_tables[instance.__class__.name]
-		records = []
+		#records = []
+
 		for instance in instances:
 			#NOTE: instance_attributes are constructed by 
 			# set_instance_attributes in tier_instance_constructor.py
@@ -99,9 +107,6 @@ class Airtable_Writer():
 		#inst_table.batch_insert(records)
 
 
-#XXX call this from main of ruminate_new.py once cleaned up
-#aw = Airtable_Writer()
-#aw.set_h_levels(aw.ar.all_tables)
 
 
 
