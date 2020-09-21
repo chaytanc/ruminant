@@ -2,6 +2,9 @@
 import logging
 import pdb
 from airtable_reader import Airtable_Reader
+import pickle as pkl
+import dill
+import os
 
 #NOTE the self passed in must be the class created by create_tier_class
 def class_constructor(self, arg):
@@ -14,10 +17,10 @@ class Tier_Tree():
 
     custom_tier_tree = []
 
-    def __init__(self, ar):
+    def __init__(self, ar, attr_dict_path):
         self.log = self.setup_logger(logging.DEBUG)
         self.ar = ar
-        #self.ar = Airtable_Reader()
+        self.attr_dict_path = attr_dict_path
 
     def setup_logger(self, logger_level):
         ''' 
@@ -42,7 +45,7 @@ class Tier_Tree():
             "__init__" : class_constructor,
             "name" : name,
             "hierarchy_level" : hierarchy_level,
-            "airtable_instance" : airtable_instance,
+            #"airtable_instance" : airtable_instance,
             #XXX user must input connections later, but all classes 
             # have this field is a class attribute! 
             # I need an instance attribute!
@@ -52,9 +55,6 @@ class Tier_Tree():
 #			"connections_below" : [],
 #			"connections_equal_how" : [],
 #			"connections_equal_why" : [],
-            #XXX working here to pickle dynamic classes
-            #"__reduce__" : lambda self : (
-                #func returning obj we pkl, (args to class we're pickling, ))
         }
         return attributes_dict
 
@@ -72,9 +72,9 @@ class Tier_Tree():
         name = attributes_dict["name"]
         #XXX Base of type Tier??
         New_Tier_Class = type(
-                name, 
-                (object,), 
-                attributes_dict	
+            name, 
+            (object,), 
+            attributes_dict	
         )
         return New_Tier_Class
 
@@ -154,7 +154,11 @@ class Tier_Tree():
             attributes_dict["fields"] = attributes
             return attributes_dict
 
-    def get_airtable_tier_tree(self, all_tables, all_tables_field_names):
+    # Don't necessarily want to pass in all these things depending on 
+    # if we are unpickling or reading fresh from airtable
+    def get_airtable_tier_tree(self, 
+        load_attr_dict=False, tier_tree_attr_dicts=None,
+        all_tables=None, all_tables_field_names=None):
         '''
         Args: 
             all_tables: is a dict of airtable table instances as returned by
@@ -165,32 +169,72 @@ class Tier_Tree():
         '''
 
         tier_tree = []
-        # For each table create a different attributes dict with different
-        # names and hierarchy level
-        #self.ar.all_tables.items()
-        for hierarchy_level, tables in all_tables.items():
-            for (table_name, airtable) in tables:
-                self.log.info("table_name: {}, airtable: {} \n".format(
-                    table_name, airtable))
 
-                # set tier_tree attr_dict with name and h_level for each 
-                # table
-                attr_dict = self.create_minimum_attributes_dict(
-                    table_name, hierarchy_level, airtable)
+        if load_attr_dict:
+            for attr_dict in tier_tree_attr_dicts:
+                self.construct_tier_tree(tier_tree, attr_dict)
+        else:
 
-                #XXX add each field from airtable to a class attribute keeping
-                # track of all column / field names and accepted type
+            # For each table create a different attributes dict with different
+            # names and hierarchy level
+            for hierarchy_level, tables in all_tables.items():
+                for (table_name, airtable) in tables:
+                    self.log.debug("table_name: {}, airtable: {} \n".format(
+                        table_name, airtable))
 
-                # set all the tier_tree class attributes based on table fields
-                #fields = self.ar.all_tables_field_names
-                table_fields = all_tables_field_names[table_name]
-                attr_dict["fields"] = table_fields
-                #pdb.set_trace()
-                # create and store tier_trees based on the fields
-                tier_tree = self.construct_tier_tree(tier_tree, attr_dict)
+                    #XXX add each field from airtable to a class attribute 
+                    # keeping track of all column / field names and 
+                    # accepted type
+
+                    attr_dict = self.create_full_attributes_dict(
+                        load_attr_dict, self.attr_dict_path, table_name, 
+                        hierarchy_level, airtable, all_tables_field_names)
+
+                    #attr_dict_path = './ruminant_objs/{}_attr_dict.pkl'.format(
+                        #table_name)
+
+                    # create and store tier_trees based on the 
+                    # fields, continuously updating the tier_tree object 
+                    # as we loop through tier classes
+                    tier_tree = self.construct_tier_tree(tier_tree, attr_dict)
         return tier_tree
 
-		
+    def create_full_attributes_dict(
+        self, load_attr_dict, attr_dict_path, table_name, hierarchy_level, 
+        airtable, all_tables_field_names):
+        '''
+        Creates min attrs dict and adds field name attrs and then pickles the
+        obj.
+        '''
+
+        #XXX working to pickle attr dict
+        attr_dict_path = str(('%s' % table_name) + attr_dict_path)
+        attr_dict = None
+        if load_attr_dict:
+            attr_dict = self.load_obj(attr_dict_path)
+        else:
+            # set tier_tree attr_dict with name and h_level for each 
+            # table
+            attr_dict = self.create_minimum_attributes_dict(
+                table_name, hierarchy_level, airtable)
+            # Add each airtable field to the class's attribute dict
+            attr_dict = self.add_fields_to_attr_dict(
+                attr_dict, all_tables_field_names, table_name)
+
+            self.log.debug('\n Pickling class attribute dict')
+            # Pickle the attr_dict
+            self.save_obj(attr_dict, attr_dict_path)
+        return attr_dict
+
+    def add_fields_to_attr_dict(self, attr_dict, 
+        all_tables_field_names, table_name):
+
+        # set all the tier_tree class attributes based on table fields
+        #fields = self.ar.all_tables_field_names
+        table_fields = all_tables_field_names[table_name]
+        attr_dict["fields"] = table_fields
+        return attr_dict
+
     def construct_tier_tree(self, tier_tree, attributes_dict):
         '''
         Args:
@@ -206,16 +250,11 @@ class Tier_Tree():
             {1 : [<Tasks class object>]}]
         '''
         
-        #XXX working here to append a __reduce__ func to the attributes_dict
-        # that we create
-        #XXX might not want to make the variable passed in lambda be named self
-#        reduce_func = lambda tier_class_self: (
-#            self.create_tier_class, (attributes_dict, )
-#        )
 
-        def reduce_func(tier_class_self):
-           return(self.create_tier_class, (attributes_dict, ))
-        attributes_dict['__reduce__'] = reduce_func
+        #def reduce_func(tier_class_self):
+           #return(self.create_tier_class, (attributes_dict, ))
+        #attributes_dict['__reduce__'] = reduce_func
+
         # Create a tier_class with the newly created attributes_dict
         # for each desired tier_class
         Tier_Class = self.create_tier_class(attributes_dict)
@@ -256,6 +295,78 @@ class Tier_Tree():
 
         return h_dict_index
 
+    def display_class_attributes(self, cls):
+        for property, value in vars(cls).items():
+            self.log.info('\n prop: {}, value: {}'.format(property, value))
+
+    def get_class_attributes(self, cls):
+        ''' 
+        necessary b/c mappingproxy is not serializable... otherwise
+        just use cls.__dict__
+        Needs to exclude __weakref__, __dict__ to be pickleable
+        '''
+        class_attributes = {}
+        for property, value in vars(cls).items():
+            # Make pickleable version
+            if property != '__weakref__' and property != '__dict__':
+                class_attributes[property] = value
+        return class_attributes
+
+
+
+#-----------------------------PICKLING---------------------------------------
+    def save_obj(self, obj, obj_file_path):
+        '''
+        This function pickles and saves an object such as tier_tree or 
+        tier tree instances to a given file in binary format.
+        '''
+        # Makes the directory storing the pkl file if it doesn't exist
+        directory = os.path.dirname(obj_file_path)
+        #self.log.debug("Dir: {}".format(directory))
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        self.log.debug('Trying to pickle {} \n'.format(obj))
+        if obj == None:
+            raise(ValueError('', 'Empty obj passed to save_obj'))
+
+        #NOTE this overwrites the existing object, "a" would append
+        with open(obj_file_path, "wb") as f:
+            try:
+                #dill.dump(obj, f)
+                pkl.dump(obj, f)
+                self.log.info("Pickled obj {} to file {}".format(
+                    obj, obj_file_path))
+            except Exception as e:
+                self.log.critical("Pickling failed due to {}".format(e))
+                bad = dill.detect.baditems(obj)
+                self.log.critical("Bad pickling items: {}".format(bad))
+
+            f.close()
+
+    def load_obj(self, obj_file_path):
+        '''
+        This function unpickles and loads an object such as tier_tree or 
+        tier tree instances from a given file.
+        '''
+
+        obj = None
+        try:
+            with open(obj_file_path, "rb") as f:
+                #obj = pkl.load(f)
+                obj = dill.load(f)
+                self.log.info("Loaded obj {} from file {}".format(
+                    obj, obj_file_path))
+                f.close()
+        except FileNotFoundError as e:
+            self.log.critical(
+                'You have not processed and saved the data yet!' +\
+                '\n Call save_obj on the obj you are trying to save first!'
+            )
+        except Exception as e:
+            self.log.critical('Unpickling failed due to {}'.format(e))
+
+        return obj
 
 
 

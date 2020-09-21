@@ -7,7 +7,6 @@ class Tier_Instance_Inputter():
 
 	def __init__(self, tic):
 		self.log = self.setup_logger(logging.DEBUG)
-		#self.tic = Tier_Instance_Constructor()
 		self.tic = tic 
 
 	def setup_logger(self, logger_level):
@@ -71,13 +70,20 @@ class Tier_Instance_Inputter():
 
 			# User inputs a instance name as a string and we match it to the
 			# actual instance object
+			#NOTE in order to pickle, need connections to be stored as names,
+			# not the literal instance, so use this self.tic.match_inst func
+			# later when using connections for other shit
 			matching_inst = self.tic.match_inst_name_to_inst(
 				connection, instances)
 
 			#XXX make this only work if the instance connected is below the 
 			# given instance
 			if matching_inst.hierarchy_level <= tier_inst.hierarchy_level:
-				connections.append(matching_inst)
+				# refer to NOTE above
+				#connections.append(matching_inst)
+				# connection is the string name of the connection, not instance
+				connections.append(connection)
+
 			else:
 				self.log.info("Connection not saved: the inputted connection" +\
 					" must be on an equal or lower hierarchy level.")
@@ -92,8 +98,10 @@ class Tier_Instance_Inputter():
 		for instance in instances:
 			inst_connections = self.input_connections_to(instance, instances)
 			# Sets instance attributes for connections below each connection
-			instance.instance_attributes['Connections Below'] = \
-				inst_connections
+			#XXX may want to move this to an airtable attribute once I figure
+			# out how to link records from code
+			instance.instance_attributes['other_attributes']\
+				['Connections Below'] = inst_connections
 			if stage:
 				self.tic.stage_instance(instance)
 
@@ -121,21 +129,33 @@ class Tier_Instance_Inputter():
 		# root_was_set not used right now
 		return root_was_set
 
-	def make_inputted_instance(self, Tier_Instance_Class):
-		'''
-			Makes one instance of a Tier Class based on input
-		'''
-		# Sets up instance attributes that aren't connections before
-		# instantiation
-		fields_to_exclude = self.tic.get_fields_to_exclude(
-			Tier_Instance_Class)
-		instance_attrs = self.tic.get_instance_attributes(
-			Tier_Instance_Class, self.input_instance_attr, fields_to_exclude)
-		inst = Tier_Instance_Class(instance_attrs)
+#	#XXX should this be in tic?? working here to make this take unpickeled 
+#	# attribute dict rather than get it from input
+#	def make_inputted_instance(self, Tier_Instance_Class, 
+#		inst_attr_func, *inst_attr_func_args):
+#		'''
+#		Args: 
+#			Tier_Instance_Class: tier class of a given instance
+#			inst_attr_func: function that returns instance attributes as an
+#				instance attributes dict
+#		Makes one instance of a Tier Class based on input
+#		'''
+#		# Sets up instance attributes that aren't connections before
+#		# instantiation
+#		fields_to_exclude = self.tic.get_fields_to_exclude(
+#			Tier_Instance_Class)
+#		#instance_attr_dict = self.tic.get_instance_attributes(
+#			#Tier_Instance_Class, self.input_instance_attr, fields_to_exclude)
+#		instance_attr_dict = inst_attr_func(*inst_attr_func_args)
+#
+#
+#		inst = Tier_Instance_Class(instance_attr_dict)
+#
+#		root_was_set = self.input_is_root(inst)
+#		return inst
 
-		root_was_set = self.input_is_root(inst)
-		return inst
-
+	#XXX working here to make a non inputted version of this func... prolly in
+	# tic, not here, but gotta get this one up and running first
 	def make_inputted_instances(self, custom_tier_tree, stage=False):
 		'''
 			Continuously makes instances of Tier Classes until the user
@@ -146,9 +166,16 @@ class Tier_Instance_Inputter():
 		keep_inputting = True
 		while keep_inputting:	
 			self.log.info("\n Start creating an instance of a tier class.")
-			tier_instance_class = self.input_tier_instance_class(
+			Tier_Instance_Class = self.input_tier_instance_class(
 				custom_tier_tree)
-			tier_inst = self.make_inputted_instance(tier_instance_class)
+			fields_to_exclude = self.tic.get_fields_to_exclude(
+				Tier_Instance_Class)
+			attr_dict_func = self.tic.get_instance_attributes
+			attr_dict_args = (Tier_Instance_Class, self.input_instance_attr, 
+				fields_to_exclude)
+			tier_inst = self.tic.make_instance(
+				Tier_Instance_Class, attr_dict_func, *attr_dict_args)
+			root_was_set = self.input_is_root(tier_inst)
 			instances.append(tier_inst)
 			#XXX workign here to stage instance if desired
 			if stage:

@@ -74,6 +74,9 @@ class Airtable_Reader():
 		Returns a dict. Keys are a table's name, values are a table's records
 		as a list of dictionary objects as returned by Airtable queries in 
 		get_all_records.
+		Ex: {'Main Quests' : 
+			[{'id': 'rec0EPSGy2jEbAvNb', 'fields': {'Name': 'europa'}}]
+			}
 		'''
 
 		all_tables_records = {}

@@ -43,12 +43,12 @@ class Ruminant():
 
 		self.ar = Airtable_Reader()
 
-		self.tt = Tier_Tree(self.ar)
+		self.tt = Tier_Tree(self.ar, keys.attr_dict_path)
 		self.ttin = Tier_Tree_Inputter(self.tt)
 
 		self.aw = Airtable_Writer(self.ar, self.tt)
 
-		self.tic = Tier_Instance_Constructor()
+		self.tic = Tier_Instance_Constructor(self.tt)
 		self.tii = Tier_Instance_Inputter(self.tic)
 
 		#XXX may need to update all_tables_records periodically
@@ -64,6 +64,9 @@ class Ruminant():
 		self.tier_tree_path = tier_tree_path
 		self.tier_instances_path = tier_instances_path
 
+		#tier_tree Ex: 
+			#[{0 : [<Main class object>]}, {1 : [<Tasks class object>]}]
+
 		self.tier_tree = None
 		#XXX this would probably be more useful if it was 
 		# {airtable table object : [instances]}  not
@@ -74,8 +77,8 @@ class Ruminant():
 
 	def setup_logger(self, logger_level):
 		''' 
-			Args: logger supports levels DEBUG, INFO, WARNING, ERROR, CRITICAL.
-			logger_level should be passed in in the format logging.LEVEL 
+		Args: logger supports levels DEBUG, INFO, WARNING, ERROR, CRITICAL.
+		logger_level should be passed in in the format logging.LEVEL 
 		'''
 
 		logging.basicConfig(level=logger_level)
@@ -84,8 +87,8 @@ class Ruminant():
 
 	def get_tier_tree(self):
 		'''
-			Mixes inputter and tier tree to actually setup a tier tree with
-			all desired tier classes based on inputs.
+		Mixes inputter and tier tree to actually setup a tier tree with
+		all desired tier classes based on inputs.
 		'''
 		n_tier_classes = self.ttin.input_n_tier_classes()
 		input_class_attrs_func = self.ttin.input_class_attributes
@@ -122,21 +125,19 @@ class Ruminant():
 	def update_airtable_h_levels(self):
 		self.aw.set_table_h_levels(self.all_tables, self.all_tables_records)
 
-	#XXX working here to stage instances before updating airtable
-
 	def set_staged_instances(self):
 		#self.staged_instances = self.tic.get_staged_instances()
 		self.staged_instances = self.tic.staged_instances
 		self.log.info('\n Staged instances = {}'.format(self.staged_instances))
 
-	def get_unconnected_instances(self):
+	def get_unconnected_instances(self, tier_tree):
 		# Initially sync self.staged_instances to self.tic.staged_instances
 		self.set_staged_instances()
 		# Make instances w/out connections
 		#instances = self.tii.make_inputted_instances(
 			#custom_tier_tree, stage=False)
-		tier_tree = self.tt.get_airtable_tier_tree(
-			self.all_tables, self.all_tables_field_names)
+		#tier_tree = self.tt.get_airtable_tier_tree(
+			#self.all_tables, self.all_tables_field_names, load_attr_dict=False)
 		self.update_airtable_h_levels()
 		unconnected_instances = self.get_tier_tree_instances(
 			tier_tree, stage=False)
@@ -144,6 +145,7 @@ class Ruminant():
 		return unconnected_instances
 
 
+	#XXX DOWNSIZE this function
 	def update_airtable_staged_records(self, 
 		load_connected_instances=False, 
 		load_unconnected_instances=False):
@@ -160,22 +162,132 @@ class Ruminant():
 		# Init staged_instances
 		#staged_instances = None
 		if load_connected_instances:
-			self.staged_instances = self.load_obj(self.tier_instances_path)
+			#XXX workign here to load cucumber
+			#self.staged_instances = self.load_obj(self.tier_instances_path)
+
+			#[({class_attr_dict}, [{inst_attr_dicts},]),]
+			cucumber = self.load_obj('./ruminant_objs/cucumber.pkl')
+			# remake tier tree using cucumber attr dicts, not airtable reading
+			#XXX this no longer works b/c changed cucumber datatype
+			#tier_class_attr_dicts = cucumber.keys()
+			tier_class_attr_dicts = self.get_cucumber_tier_class_dicts(
+				cucumber)
+			#XXX may not need tier_tree since we're directly constructing
+			# instance classes from
+			tier_tree = self.tt.get_airtable_tier_tree(
+				load_attr_dict=True, 
+				tier_tree_attr_dicts=tier_class_attr_dicts)
+			# use tier tree to remake instances, applying cucumber attr dicts
+			# instead of input
+			instances = self.tic.make_cucumber_instances(cucumber, tier_tree)
+			self.set_staged_instances()
+			self.log.info('loaded connected instances: {}'.format(
+				self.staged_instances))
+			#XXX working to apply class attributes to loaded pkls
+			# not necessary since make_instance gets and applies attribute dict
+			#self.reapply_class_attributes(self.staged_instances)
 		else:
-			# Init unconnected_instances
+			# Init unconnected_instances & tier_tree
 			unconnected_instances = None
+			tier_tree = None
+
 			if load_unconnected_instances:
 				unconnected_instances = self.load_obj(self.tier_instances_path)
+				self.reapply_class_attributes(unconnected_instances)
 			else:
-				unconnected_instances = self.get_unconnected_instances()
+				tier_tree = self.tt.get_airtable_tier_tree(
+					load_attr_dict=False,
+					all_tables=self.all_tables, 
+					all_tables_field_names=self.all_tables_field_names
+				)
+				unconnected_instances = self.get_unconnected_instances(
+					tier_tree)
 
 			# Make connections
 			self.tii.input_all_connections(unconnected_instances, stage=True)
+			#NOTE staged_instances has {'name' : instance} format
 			self.set_staged_instances()
-			self.save_obj(self.staged_instances, self.tier_instances_path)
+			#XXX working to pickle class attributes and inst attrs as cucumber
+			cucumber = self.make_cucumber(
+				self.staged_instances.values(), tier_tree)
+			#self.save_obj(self.staged_instances, self.tier_instances_path)
+			self.save_obj(cucumber, './ruminant_objs/cucumber.pkl')
 
 		staged_instances_values = self.staged_instances.values()
 		self.aw.set_records(staged_instances_values, self.all_tables)
+#
+#	def reapply_class_attributes(self, instances):
+#		'''
+#		Since pickling loses class attributes, need to reapply the pickled
+#		attribute dict to the classes of each loaded instance.
+#		'''
+#		#XXX may want to return a new instances list; nope, should be fine
+#		# because passing mutable objects such as lists is by value in Py
+#		for tables_list in keys.tables.values():
+#			for table_name in tables_list:
+#				attr_dict = self.load_obj(
+#					keys.attr_dict_path.format(table_name))
+#				for inst_name, instance in instances.items():
+#					# If the instance is in a certain table
+#					inst_attrs = instance('').instance_attributes
+#					self.log.debug('inst_attrs: {}'.format(inst_attrs))
+#					if inst_attrs['airtable_attributes']['Name'] == table_name:
+#						# Apply those class attributes from that table to the
+#						# instance
+#						instance.__class__.__dict__ = attr_dict
+#
+#	def reapply_instance_attributes(self, instances):
+#		'''
+#		After loading pickled instances, we will apply pickled instance
+#		attributes to them, since apparently these were not preserved
+#		'''
+
+	#XXX don't currently input a tier tree here, need to do so w current code
+	# to iterate over classes... do we want ot have to input tier tree here?
+	def make_cucumber(self, instances, tier_tree):
+		'''
+		Returns a dict, keys are the tier class attributes dict, 
+		keys are a list of instance attribute dicts.
+		Ex: {
+				{hierarchy_level : 0, 'name' : 'Main Quests'} : 
+				[{'Name' : 'Conquer Europa'}]
+			}
+
+			new type returned: 
+				[({class_attr_dict}, [{inst_attr_dicts},]),]
+		'''
+
+		cucumber = []
+
+		all_classes = self.get_tier_tree_classes(tier_tree)
+		
+		for cls in all_classes:
+			cls_instance_attrs_list = []
+			cls_attr_dict = self.tt.get_class_attributes(cls)
+			for instance in instances:
+				if instance.__class__.name == cls.name:
+					inst_attr_dict = instance.instance_attributes
+					cls_instance_attrs_list.append(inst_attr_dict)
+			# (cls_attr_dict, [inst attr dicts])
+			attr_dicts_tuple = (cls_attr_dict, cls_instance_attrs_list)
+			cucumber.append(attr_dicts_tuple)
+		return cucumber
+
+	def get_tier_tree_classes(self, tier_tree):
+		all_classes = []
+		for h_level_dict in tier_tree:
+			for tier_class_list in h_level_dict.values():
+				for tier_class in tier_class_list:
+					all_classes.append(tier_class)
+		return all_classes
+
+	def get_cucumber_tier_class_dicts(self, cucumber):
+		tier_attr_dicts = []
+		for tier_attr_dict, _ in cucumber:
+			tier_attr_dicts.append(tier_attr_dict)
+		return tier_attr_dicts
+
+
 
 	def update_connections(self):
 		'''
@@ -217,8 +329,8 @@ class Ruminant():
 		#NOTE this overwrites the existing object, "a" would append
 		with open(obj_file_path, "wb") as f:
 			try:
-				#pkl.dump(obj, f)
-				dill.dump(obj, f)
+				pkl.dump(obj, f)
+				#dill.dump(obj, f)
 				self.log.info("Pickled obj {} to file {}".format(
 					obj, obj_file_path))
 			except Exception as e:
@@ -254,32 +366,21 @@ class Ruminant():
 
 		return obj
 
-#	def make_and_save_objs(self):
-#		'''
-#			This function makes both the user's custom defined tier tree and 
-#			all instances of its classes and pickles them to local files.
-#		'''
-#		custom_tier_tree = self.get_tier_tree()
-#		#NOTE can't pickle a class or class attributes. 
-#		# Need a different way of saving and retrieviing classes that 
-#		# the user made. Maybe just upload and download that data to 
-#		# Airtable immediately without local file intermediate.
-#		self.save_obj(custom_tier_tree, self.tier_tree_path)
-#		instances = self.tii.make_inputted_instances(custom_tier_tree)
-#		self.save_obj(instances, self.tier_instances_path)
-#		return instances
-
 	
 if __name__ == "__main__":
 
 	r = Ruminant(tier_tree_path, tier_instances_path)
 	#instances = ruminant.make_and_save_objs()
 	tier_tree = r.tt.get_airtable_tier_tree(
-		r.all_tables, r.all_tables_field_names)
+		all_tables=r.all_tables, 
+		all_tables_field_names=r.all_tables_field_names, 
+		load_attr_dict=False)
 	r.update_airtable_h_levels()
 	#instances = r.get_tier_tree_instances(tier_tree)
 	#r.update_airtable_records(tier_tree)
+	#XXX False, True doesn't seem to work as it should.
+	# Should be same as False False
 	r.update_airtable_staged_records(
-		load_connected_instances=True, load_unconnected_instances=True)
+		load_connected_instances=False, load_unconnected_instances=False)
 	
 	

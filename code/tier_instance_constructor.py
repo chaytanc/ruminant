@@ -4,8 +4,9 @@ import pdb
 
 class Tier_Instance_Constructor():
 
-	def __init__(self):
+	def __init__(self, tt):
 		self.log = self.setup_logger(logging.INFO)
+		self.tt = tt
 		self.staged_instances = {}
 
 	def setup_logger(self, logger_level):
@@ -141,8 +142,6 @@ class Tier_Instance_Constructor():
 			if tier_inst.hierarchy_level == 0:
 				#NOTE: instance attribute not class attribute. is_root is
 				# evaluated for each record
-				#XXX making instance_attributes have two dicts, one for 
-				# record fields and one for other attributes like is_root
 				tier_inst.instance_attributes["other_attributes"]["is_root"] = \
 					True
 				root_was_set = True
@@ -183,12 +182,6 @@ class Tier_Instance_Constructor():
 		instance_attributes = {
 			'airtable_attributes' : {}, 'other_attributes' : {}
 		}
-		#XXX
-		# Prints and shows CLASS attributes... we want to set each instance to
-		# have set an instance property for every column represented by the
-		# class attribute names of columns
-		for property, value in vars(tier_class).items():
-			self.log.info('\n prop: {}, value: {}'.format(property, value))
 
 		# loop through class fields and set the instance attribute
 		for field in tier_class.fields:
@@ -230,7 +223,6 @@ class Tier_Instance_Constructor():
 		for arg in args:
 			array.append(arg)
 
-
 	def get_connection_fields(self, fields):
 		'''
 		Args: 
@@ -246,38 +238,75 @@ class Tier_Instance_Constructor():
 
 	def display_instances_and_props(self, instances):
 
-		self.log.info('Instances: {} \n'.format(instances))
 		self.log.info('Instance options: \n')
 		for instance in instances:
 			self.log.info('Instance: {} \n'.format(instance.name))
 			self.log.info('Instance properties: {} \n'.format(
 				instance.__dict__))
 
-
-	#NOTE: can do instance.__class__.airtable_instance to get the table
-	# that an instance is a part of. Not sure that the returned datatype here
-	# is useful anymore...
-	def get_instance_dict(self, instances, all_tables):
+	def make_instance(self, Tier_Instance_Class, 
+		inst_attr_func, *inst_attr_func_args):
 		'''
-		Returns a dict with keys as the table which the instances belong to
-		and values being a list of instances to go in the table.
-		Ex: instance_dict = 
-			{<Airtable Main Quests> : [<tier_tree.Main Quests object at 0x142>]}
+		Args: 
+			Tier_Instance_Class: tier class of a given instance
+			inst_attr_func: function that returns instance attributes as an
+				instance attributes dict
+		Makes one instance of a Tier Class based on input
 		'''
+		# Sets up instance attributes that aren't connections before
+		# instantiation
+		#fields_to_exclude = self.tic.get_fields_to_exclude(
+			#Tier_Instance_Class)
+		#instance_attr_dict = self.tic.get_instance_attributes(
+			#Tier_Instance_Class, self.input_instance_attr, fields_to_exclude)
+		instance_attr_dict = inst_attr_func(*inst_attr_func_args)
+		inst = Tier_Instance_Class(instance_attr_dict)
 
-		instance_dict = {}
-		for instance in instances:
-			inst_table = instance.__class__.airtable_instance
-			instance_dict[inst_table] = instance
-#			inst_table = instance.__class__.name
-#			for tables_list in all_tables.values():
-#				for table_name, airtable in tables_list:
-#					if inst_table == table_name:
-#						instance_dict[airtable] = instance
+		return inst
 
-		return instance_dict
+#NOTE remember to set staged instances
+	def make_cucumber_instances(self, cucumber, tier_tree):
+		'''
+		Args: 
+			cucumber: [({tier class attr dict}, [list of {inst attr dicts}]),]
+			#cucumber: {{tier class attr dict} : [list of {inst attr dicts}], }
+		'''
+		instances = []
+		for tier_class_dict, list_inst_dicts in cucumber:
+			Tier_Class = self.tt.create_tier_class(tier_class_dict)
+			for inst_attr_dict in list_inst_dicts:
+				inst_attr_func = lambda x : inst_attr_dict
+				inst_attr_args = None
+				inst = self.make_instance(
+					Tier_Class, inst_attr_func, inst_attr_args)
+				instances.append(inst)
+				self.log.debug(
+					'instances, instance: {}, {}'.format(instances, inst))
 
-	def stage_instances(self, instances, staged_instances):
+		self.stage_instances(instances)
+		return instances
+
+	def get_connection_instances(self, connected_instances):
+		'''
+		Returns a dict with the key being an instance and the value being
+		a list of all that instance's connections, in the the form of 
+		instances themselves.
+		'''
+		# {instance : [connection instances], }
+		connection_instances = {}
+		for instance in connected_instances:
+			instance_connection_instances = []
+			# stores connections in other_attributes
+			connections = instance.instance_attributes['other_attributes']\
+				['Connections Below']
+			for connection in connections:
+				connection_instance = self.match_inst_name_to_inst(connection)
+				instance_connection_instances.append(connection_instance)
+
+			connection_instances[instance] = instance_connection_instances
+		return connection_instances
+
+	def stage_instances(self, instances):
 		for instance in instances:
 			self.stage_instance(instance)
 
