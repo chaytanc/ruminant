@@ -43,7 +43,8 @@ class Ruminant():
 
 		self.ar = Airtable_Reader()
 
-		self.tt = Tier_Tree(self.ar, keys.attr_dict_path)
+		self.tt = Tier_Tree(
+			self.ar, keys.attr_dict_path1, keys.attr_dict_path2)
 		self.ttin = Tier_Tree_Inputter(self.tt)
 
 		self.aw = Airtable_Writer(self.ar, self.tt)
@@ -185,15 +186,15 @@ class Ruminant():
 				self.staged_instances))
 			#XXX working to apply class attributes to loaded pkls
 			# not necessary since make_instance gets and applies attribute dict
-			#self.reapply_class_attributes(self.staged_instances)
 		else:
 			# Init unconnected_instances & tier_tree
 			unconnected_instances = None
 			tier_tree = None
 
+			#XXX not sure this part works
 			if load_unconnected_instances:
 				unconnected_instances = self.load_obj(self.tier_instances_path)
-				self.reapply_class_attributes(unconnected_instances)
+
 			else:
 				tier_tree = self.tt.get_airtable_tier_tree(
 					load_attr_dict=False,
@@ -215,35 +216,7 @@ class Ruminant():
 
 		staged_instances_values = self.staged_instances.values()
 		self.aw.set_records(staged_instances_values, self.all_tables)
-#
-#	def reapply_class_attributes(self, instances):
-#		'''
-#		Since pickling loses class attributes, need to reapply the pickled
-#		attribute dict to the classes of each loaded instance.
-#		'''
-#		#XXX may want to return a new instances list; nope, should be fine
-#		# because passing mutable objects such as lists is by value in Py
-#		for tables_list in keys.tables.values():
-#			for table_name in tables_list:
-#				attr_dict = self.load_obj(
-#					keys.attr_dict_path.format(table_name))
-#				for inst_name, instance in instances.items():
-#					# If the instance is in a certain table
-#					inst_attrs = instance('').instance_attributes
-#					self.log.debug('inst_attrs: {}'.format(inst_attrs))
-#					if inst_attrs['airtable_attributes']['Name'] == table_name:
-#						# Apply those class attributes from that table to the
-#						# instance
-#						instance.__class__.__dict__ = attr_dict
-#
-#	def reapply_instance_attributes(self, instances):
-#		'''
-#		After loading pickled instances, we will apply pickled instance
-#		attributes to them, since apparently these were not preserved
-#		'''
 
-	#XXX don't currently input a tier tree here, need to do so w current code
-	# to iterate over classes... do we want ot have to input tier tree here?
 	def make_cucumber(self, instances, tier_tree):
 		'''
 		Returns a dict, keys are the tier class attributes dict, 

@@ -4,7 +4,12 @@ import unittest
 import logging
 import sys
 sys.path.append('../code')
-import ruminate
+import ruminant
+from ruminant import Ruminant
+import keys
+
+tier_tree_path = keys.tier_tree_path
+tier_instances_path = keys.tier_instances_path
 
 def setup_logger(logger_level):
 	''' Args: logger supports levels DEBUG, INFO, WARNING, ERROR, CRITICAL.
@@ -14,7 +19,7 @@ def setup_logger(logger_level):
 	logger = logging.getLogger(__name__)
 	return logger
 
-class Test_Organize(unittest.TestCase):
+class Test_Ruminant(unittest.TestCase):
 
 	# Use decorator to disable tests
 	def disabled(self):
@@ -23,8 +28,9 @@ class Test_Organize(unittest.TestCase):
 		return _decorator
 
 	def setUp(self):
-		self.log = setup_logger(logging.DEBUG)	
-		self.class_constructor = ruminate.class_constructor
+		self.log = setup_logger(logging.DEBUG)
+		self.r = Ruminant(tier_tree_path, tier_instances_path)
+		self.class_constructor = ruminant.class_constructor
 		self.fake_attributes_dict1 = {
 			"__init__" : self.class_constructor,
 			"name" : "Fake_Tier1",
@@ -43,7 +49,7 @@ class Test_Organize(unittest.TestCase):
 			self.fake_attributes_dict1, self.fake_attributes_dict2
 		]
 		self.n_tier_classes = 2
-#		self.fake_tier_tree = ruminate.setup_tier_tree(
+#		self.fake_tier_tree = self.r.setup_tier_tree(
 #			self.n_tier_classes,
 #			self.fake_attributes_dicts_list
 #		)
@@ -54,10 +60,8 @@ class Test_Organize(unittest.TestCase):
 #	@disabled
 #	def test_create_tier_class_90(self):
 #		self.log.debug("\n TEST 90 \n")
-#		New_Tier_Class = ruminate.create_tier_class(fake_attributes_dict1)
+#		New_Tier_Class = self.r.create_tier_class(fake_attributes_dict1)
 		
-	#XXX may want to later make a class to encompass setup funcs and then this
-	# will need to be fixed
 	@disabled
 	def test_setup_tier_tree_100(self):
 		self.log.debug("\n TEST 100 \n")
@@ -77,17 +81,10 @@ class Test_Organize(unittest.TestCase):
 	#@disabled
 	def test_get_all_classes_200(self):
 		self.log.debug("\n TEST 200 \n")
-		test_classes_list = ruminate.get_all_classes(self.fake_tier_tree)
-		fake_classes_list = [self.Fake_Class1, self.Fake_Class2]
-		assert(test_classes_list == fake_classes_list)
 
 	#@disabled
 	def test_get_class_by_name_300(self):
 		self.log.debug("\n TEST 300 \n")
-		name = "Fake_Tier1"
-		found_class = ruminate.get_class_by_name(self.fake_tier_tree, name)
-		assert(found_class == self.Fake_Class1)
-
 
 	def tearDown(self):
 		pass

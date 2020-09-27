@@ -96,6 +96,7 @@ class Airtable_Writer():
 		for instance in instances:
 			#NOTE: instance_attributes are constructed by 
 			# set_instance_attributes in tier_instance_constructor.py
+			#XXX this breaks pickling
 			inst_table = instance.__class__.airtable_instance
 			record = instance.instance_attributes['airtable_attributes']
 			# for batches: Append each column / field / instance attribute 

@@ -17,10 +17,11 @@ class Tier_Tree():
 
     custom_tier_tree = []
 
-    def __init__(self, ar, attr_dict_path):
+    def __init__(self, ar, attr_dict_path1, attr_dict_path2):
         self.log = self.setup_logger(logging.DEBUG)
         self.ar = ar
-        self.attr_dict_path = attr_dict_path
+        self.attr_dict_path1 = attr_dict_path1
+        self.attr_dict_path2 = attr_dict_path2
 
     def setup_logger(self, logger_level):
         ''' 
@@ -45,7 +46,8 @@ class Tier_Tree():
             "__init__" : class_constructor,
             "name" : name,
             "hierarchy_level" : hierarchy_level,
-            #"airtable_instance" : airtable_instance,
+            #XXX commented out because airtable_instance breaks picklign
+            "airtable_instance" : airtable_instance,
             #XXX user must input connections later, but all classes 
             # have this field is a class attribute! 
             # I need an instance attribute!
@@ -185,9 +187,11 @@ class Tier_Tree():
                     #XXX add each field from airtable to a class attribute 
                     # keeping track of all column / field names and 
                     # accepted type
+                    path = self.create_full_attr_dict_path(
+                        self.attr_dict_path1, table_name, self.attr_dict_path2)
 
                     attr_dict = self.create_full_attributes_dict(
-                        load_attr_dict, self.attr_dict_path, table_name, 
+                        load_attr_dict, path, table_name, 
                         hierarchy_level, airtable, all_tables_field_names)
 
                     #attr_dict_path = './ruminant_objs/{}_attr_dict.pkl'.format(
@@ -199,6 +203,18 @@ class Tier_Tree():
                     tier_tree = self.construct_tier_tree(tier_tree, attr_dict)
         return tier_tree
 
+    def create_full_attr_dict_path(
+        self, attr_dict_path1, table_name, attr_dict_path2):
+        ''' Conglomerates paths to individualize path based on table name
+        #XXX this doctest will fail until self.tt is created for doctests
+        >>> self.tt.create_full_attr_dict_path( "./", "Main", "_attr_dict.pkl")
+        "./Main_attr_dict.pkl"
+        '''
+
+        full_path = str(attr_dict_path1 + table_name + attr_dict_path2)
+
+        return full_path
+
     def create_full_attributes_dict(
         self, load_attr_dict, attr_dict_path, table_name, hierarchy_level, 
         airtable, all_tables_field_names):
@@ -207,8 +223,6 @@ class Tier_Tree():
         obj.
         '''
 
-        #XXX working to pickle attr dict
-        attr_dict_path = str(('%s' % table_name) + attr_dict_path)
         attr_dict = None
         if load_attr_dict:
             attr_dict = self.load_obj(attr_dict_path)
