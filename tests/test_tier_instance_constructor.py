@@ -78,7 +78,6 @@ class Test_Tier_Instance_Constructor(unittest.TestCase):
 	def test_match_inst_name_to_inst_300(self):
 		self.log.debug("\n TEST 300 \n")
 		name = 'Gather penguins'
-		#instances = 
 		self.tic.match_inst_name_to_inst(name, instances)
 
 	def tearDown(self):

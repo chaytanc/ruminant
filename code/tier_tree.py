@@ -265,9 +265,9 @@ class Tier_Tree():
         '''
         
 
-        #def reduce_func(tier_class_self):
-           #return(self.create_tier_class, (attributes_dict, ))
-        #attributes_dict['__reduce__'] = reduce_func
+        def reduce_func(tier_class_self):
+           return(self.create_tier_class, (attributes_dict, ))
+        attributes_dict['__reduce__'] = reduce_func
 
         # Create a tier_class with the newly created attributes_dict
         # for each desired tier_class
@@ -347,8 +347,8 @@ class Tier_Tree():
         #NOTE this overwrites the existing object, "a" would append
         with open(obj_file_path, "wb") as f:
             try:
-                #dill.dump(obj, f)
-                pkl.dump(obj, f)
+                dill.dump(obj, f)
+                #pkl.dump(obj, f)
                 self.log.info("Pickled obj {} to file {}".format(
                     obj, obj_file_path))
             except Exception as e:

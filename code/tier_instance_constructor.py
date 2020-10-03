@@ -264,12 +264,14 @@ class Tier_Instance_Constructor():
 
 		return inst
 
-#NOTE remember to set staged instances
+	#NOTE remember to set staged instances
 	def make_cucumber_instances(self, cucumber, tier_tree):
 		'''
+		Given an unpickled cucumber, unpack the values and recreate instances
+		of tier classes as they were before they were pickled / saved.
+
 		Args: 
 			cucumber: [({tier class attr dict}, [list of {inst attr dicts}]),]
-			#cucumber: {{tier class attr dict} : [list of {inst attr dicts}], }
 		'''
 		instances = []
 		for tier_class_dict, list_inst_dicts in cucumber:

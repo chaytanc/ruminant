@@ -24,27 +24,28 @@ class Test_Ruminant(unittest.TestCase):
 	# Use decorator to disable tests
 	def disabled(self):
 		def _decorator(f):
-			 print(str(f) + ' has been disabled')
+			 self.log.info(str(f) + ' has been disabled')
 		return _decorator
 
 	def setUp(self):
 		self.log = setup_logger(logging.DEBUG)
 		self.r = Ruminant(tier_tree_path, tier_instances_path)
-		self.class_constructor = ruminant.class_constructor
+		#XXX class_constructor is now in tier_tree
+		self.class_constructor = self.r.tt.class_constructor
 		self.fake_attributes_dict1 = {
 			"__init__" : self.class_constructor,
-			"name" : "Fake_Tier1",
+			"name" : "Upper_Fake_Tier1",
 			"hierarchy_level" : 0,
 		}
 		self.Fake_Class1 = type(
-			"Fake_Tier1", (object,), self.fake_attributes_dict1)
+			"Upper_Fake_Tier1", (object,), self.fake_attributes_dict1)
 		self.fake_attributes_dict2 = {
 			"__init__" : self.class_constructor,
 			"name" : "Lower_Fake_Tier2",
 			"hierarchy_level" : 1,
 		}
 		self.Fake_Class2 = type(
-			"Fake_Tier2", (object,), self.fake_attributes_dict2)
+			"Lower_Fake_Tier2", (object,), self.fake_attributes_dict2)
 		self.fake_attributes_dicts_list = [
 			self.fake_attributes_dict1, self.fake_attributes_dict2
 		]
@@ -57,6 +58,10 @@ class Test_Ruminant(unittest.TestCase):
 			{0: [self.Fake_Class1]}, {1: [self.Fake_Class2]}
 		]
 
+		self.fake_inst_attr_dict = {
+			'Name' : 'fake instance', 'Status' : 'hot mess'
+		}
+		self.fake_inst_attr_func = lambda x : self.fake_inst_attr_dict
 #	@disabled
 #	def test_create_tier_class_90(self):
 #		self.log.debug("\n TEST 90 \n")
@@ -78,12 +83,33 @@ class Test_Ruminant(unittest.TestCase):
 		#XXX I wish the below assert could work
 		#assert(tier_tree == fake_tier_tree)
 
-	#@disabled
-	def test_get_all_classes_200(self):
-		self.log.debug("\n TEST 200 \n")
+	def test_make_instances_150(self):
+		self.log.debug("\n TEST 150 \n")
+		instance = self.r.tic.make_instance(
+			self.Fake_Class1, self.fake_inst_attr_func, None)
+		instance_two = self.r.tic.make_instance(
+			self.Fake_Class1, self.fake_inst_attr_func, None)
+		instances = [instance, instance_two]
+		self.log.debug("Instances: {}".format(instances))
 
 	#@disabled
-	def test_get_class_by_name_300(self):
+	def test_make_cucumber_200(self):
+		'''
+		Check that we make the correct cucumber from a fake setup of inputs
+		'''
+		self.log.debug("\n TEST 200 \n")
+
+		instance = self.r.tic.make_instance(
+			self.Fake_Class1, self.fake_inst_attr_func, None)
+		instance_two = self.r.tic.make_instance(
+			self.Fake_Class1, self.fake_inst_attr_func, None)
+		instances = [instance, instance_two]
+		self.r.make_cucumber(instances, self.tier_tree)
+
+
+
+	#@disabled
+	def test_load_cucumber_300(self):
 		self.log.debug("\n TEST 300 \n")
 
 	def tearDown(self):
